@@ -252,3 +252,130 @@ export function solveAllOdeMethods(expression, x0, y0, xf, h) {
     rk4: rk4Res
   };
 }
+
+/**
+ * Método de Runge-Kutta de 4to Orden para Sistemas de EDOs Acopladas de 1er Orden:
+ * dy1/dt = f1(t, y1, y2)
+ * dy2/dt = f2(t, y1, y2)
+ */
+export function rk4System(f1Expr, f2Expr, t0, y1_0, y2_0, tf, h, options = {}) {
+  const numSteps = validateOdeInputs(t0, y1_0, tf, h);
+  if (typeof y2_0 !== 'number' || !Number.isFinite(y2_0)) {
+    throw new Error('El valor inicial y2_0 debe ser un número finito válido.');
+  }
+
+  const { evaluate: evalF1 } = compileSystemFunction(f1Expr);
+  const { evaluate: evalF2 } = compileSystemFunction(f2Expr);
+
+  const trajectory = [];
+  let currentT = t0;
+  let currentY1 = y1_0;
+  let currentY2 = y2_0;
+
+  for (let i = 0; i <= numSteps; i++) {
+    if (i === numSteps) {
+      trajectory.push({
+        i,
+        t: currentT,
+        y1: currentY1,
+        y2: currentY2,
+        k1_1: null,
+        k1_2: null,
+        k2_1: null,
+        k2_2: null,
+        k3_1: null,
+        k3_2: null,
+        k4_1: null,
+        k4_2: null
+      });
+      break;
+    }
+
+    let k1_1, k1_2, k2_1, k2_2, k3_1, k3_2, k4_1, k4_2;
+
+    try {
+      // k1
+      k1_1 = evalF1(currentT, currentY1, currentY2);
+      k1_2 = evalF2(currentT, currentY1, currentY2);
+
+      // k2
+      const tHalf = currentT + 0.5 * h;
+      const y1_k2 = currentY1 + 0.5 * h * k1_1;
+      const y2_k2 = currentY2 + 0.5 * h * k1_2;
+      k2_1 = evalF1(tHalf, y1_k2, y2_k2);
+      k2_2 = evalF2(tHalf, y1_k2, y2_k2);
+
+      // k3
+      const y1_k3 = currentY1 + 0.5 * h * k2_1;
+      const y2_k3 = currentY2 + 0.5 * h * k2_2;
+      k3_1 = evalF1(tHalf, y1_k3, y2_k3);
+      k3_2 = evalF2(tHalf, y1_k3, y2_k3);
+
+      // k4
+      const tFull = currentT + h;
+      const y1_k4 = currentY1 + h * k3_1;
+      const y2_k4 = currentY2 + h * k3_2;
+      k4_1 = evalF1(tFull, y1_k4, y2_k4);
+      k4_2 = evalF2(tFull, y1_k4, y2_k4);
+    } catch (err) {
+      throw new Error(`Error en RK4 de sistema en paso ${i} (t = ${currentT.toFixed(4)}): ${err.message}`);
+    }
+
+    const nextY1 = currentY1 + (h / 6) * (k1_1 + 2 * k2_1 + 2 * k3_1 + k4_1);
+    const nextY2 = currentY2 + (h / 6) * (k1_2 + 2 * k2_2 + 2 * k3_2 + k4_2);
+
+    trajectory.push({
+      i,
+      t: currentT,
+      y1: currentY1,
+      y2: currentY2,
+      k1_1,
+      k1_2,
+      k2_1,
+      k2_2,
+      k3_1,
+      k3_2,
+      k4_1,
+      k4_2
+    });
+
+    currentT = t0 + (i + 1) * h;
+    currentY1 = nextY1;
+    currentY2 = nextY2;
+
+    if (!Number.isFinite(currentY1) || !Number.isFinite(currentY2)) {
+      throw new Error(`Inestabilidad numérica o divergencia en t = ${currentT.toFixed(4)}.`);
+    }
+  }
+
+  return {
+    method: options.isSecondOrder ? 'RK4 para EDO de 2° Orden' : 'RK4 para Sistemas de EDOs',
+    t0,
+    tf,
+    h,
+    numSteps,
+    finalY1: trajectory[trajectory.length - 1].y1,
+    finalY2: trajectory[trajectory.length - 1].y2,
+    var1Label: options.var1Label || 'y_1',
+    var2Label: options.var2Label || 'y_2',
+    isSecondOrder: !!options.isSecondOrder,
+    trajectory
+  };
+}
+
+/**
+ * Método de Runge-Kutta 4to Orden para EDO de 2do Orden:
+ * y'' = f(t, y, y') con y(t0) = y0, y'(t0) = v0.
+ * Reducción canónica a sistema:
+ * y1 = y, y2 = y'
+ * dy1/dt = y2
+ * dy2/dt = f(t, y1, y2)
+ */
+export function rk4SecondOrder(expr, t0, y0, v0, tf, h) {
+  return rk4System('y2', expr, t0, y0, v0, tf, h, {
+    isSecondOrder: true,
+    var1Label: 'y(t) (Posición)',
+    var2Label: "y'(t) (Velocidad)"
+  });
+}
+
