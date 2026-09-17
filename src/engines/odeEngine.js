@@ -1,4 +1,4 @@
-import { compileFunction2D } from './mathParser';
+import { compileFunction2D, compileSystemFunction } from './mathParser';
 
 /**
  * MÓDULO 4: ECUACIONES DIFERENCIALES ORDINARIAS (EDO)
