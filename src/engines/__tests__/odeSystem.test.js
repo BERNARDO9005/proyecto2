@@ -18,11 +18,12 @@ describe('ODE System & 2nd Order Engine', () => {
   it('solves harmonic oscillator as a 2nd order ODE (y\'\' = -y)', () => {
     // y'' = -y, y(0) = 1, y'(0) = 0 => y(t) = cos(t), y'(t) = -sin(t)
     const tFinal = Math.PI;
-    const res = rk4SecondOrder('-y', 0, 1, 0, tFinal, 0.05);
+    const h = Math.PI / 50;
+    const res = rk4SecondOrder('-y', 0, 1, 0, tFinal, h);
 
     const last = res.trajectory[res.trajectory.length - 1];
-    expect(last.y1).toBeCloseTo(-1, 3); // cos(pi) = -1
-    expect(last.y2).toBeCloseTo(0, 3);  // -sin(pi) = 0
+    expect(last.y1).toBeCloseTo(-1, 4); // cos(pi) = -1
+    expect(last.y2).toBeCloseTo(0, 4);  // -sin(pi) = 0
   });
 
   it('handles predator-prey system without NaN or divergence within bounded time', () => {

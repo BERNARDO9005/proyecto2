@@ -45,12 +45,14 @@ export function checkStrictDiagonalDominance(A) {
   };
 }
 
+const MAX_DETAILED_N = 10;
+
 /**
  * Eliminación Gaussiana con Pivoteo Parcial Obligatorio
  */
 export function gaussianElimination(A_in, b_in) {
   const n = A_in.length;
-  if (n < 2 || n > 10) throw new Error('La dimensión del sistema debe estar entre 2 y 10.');
+  if (n < 2 || n > 50) throw new Error('La dimensión del sistema debe estar entre 2 y 50.');
   if (b_in.length !== n) throw new Error('Las dimensiones de A y b no coinciden.');
 
   // Construir matriz aumentada [A|b]
@@ -62,13 +64,12 @@ export function gaussianElimination(A_in, b_in) {
   const steps = [];
   steps.push({
     title: 'Matriz Aumentada Inicial [A | b]',
-    matrix: cloneMatrix(M),
-    description: 'Estado inicial del sistema de ecuaciones.'
+    matrix: n <= MAX_DETAILED_N ? cloneMatrix(M) : null,
+    description: `Estado inicial del sistema (${n}×${n}).`
   });
 
   // Fase de eliminación hacia adelante con pivoteo parcial
   for (let col = 0; col < n; col++) {
-    // Buscar pivote máximo en la columna col (desde la fila col hasta n-1)
     let maxRow = col;
     let maxVal = Math.abs(M[col][col]);
     for (let r = col + 1; r < n; r++) {
@@ -78,40 +79,42 @@ export function gaussianElimination(A_in, b_in) {
       }
     }
 
-    // Comprobación de matriz singular
     if (maxVal < EPSILON) {
       throw new Error(
         `Matriz singular o mal condicionada detectada en la columna ${col + 1} (pivote ≈ 0 tras pivoteo parcial). El sistema no tiene solución única o es indeterminado.`
       );
     }
 
-    // Intercambio de filas si es necesario
     if (maxRow !== col) {
       const temp = M[col];
       M[col] = M[maxRow];
       M[maxRow] = temp;
 
-      steps.push({
-        title: `Pivoteo Parcial en Columna ${col + 1}`,
-        matrix: cloneMatrix(M),
-        description: `Intercambio de Fila ${col + 1} con Fila ${maxRow + 1} para maximizar el pivote (|${maxVal.toFixed(4)}|).`
-      });
+      if (n <= MAX_DETAILED_N || col === 0) {
+        steps.push({
+          title: `Pivoteo Parcial en Columna ${col + 1}`,
+          matrix: n <= MAX_DETAILED_N ? cloneMatrix(M) : null,
+          description: `Intercambio de Fila ${col + 1} con Fila ${maxRow + 1} para maximizar el pivote (|${maxVal.toFixed(4)}|).`
+        });
+      }
     }
 
     // Eliminación de las filas inferiores
     for (let row = col + 1; row < n; row++) {
       const factor = M[row][col] / M[col][col];
-      M[row][col] = 0; // Asegurar cero explícito numérico
+      M[row][col] = 0;
       for (let j = col + 1; j <= n; j++) {
         M[row][j] -= factor * M[col][j];
       }
     }
 
-    steps.push({
-      title: `Eliminación bajo el Pivote de Columna ${col + 1}`,
-      matrix: cloneMatrix(M),
-      description: `Ceros creados bajo el elemento diagonal M[${col + 1},${col + 1}].`
-    });
+    if (n <= MAX_DETAILED_N || col === n - 2 || col === 0) {
+      steps.push({
+        title: `Eliminación bajo el Pivote de Columna ${col + 1}`,
+        matrix: n <= MAX_DETAILED_N ? cloneMatrix(M) : null,
+        description: `Ceros creados bajo el elemento diagonal M[${col + 1},${col + 1}].`
+      });
+    }
   }
 
   // Sustitución hacia atrás
@@ -129,11 +132,13 @@ export function gaussianElimination(A_in, b_in) {
     }
     x[i] = (M[i][n] - sum) / diag;
 
-    backSubstitutionHistory.unshift({
-      variable: `x_${i + 1}`,
-      formula: `(${M[i][n].toFixed(6)} - ${sum.toFixed(6)}) / ${diag.toFixed(6)}`,
-      value: x[i]
-    });
+    if (n <= MAX_DETAILED_N || i >= n - 3 || i <= 2) {
+      backSubstitutionHistory.unshift({
+        variable: `x_${i + 1}`,
+        formula: `(${M[i][n].toFixed(4)} - ${sum.toFixed(4)}) / ${diag.toFixed(4)}`,
+        value: x[i]
+      });
+    }
   }
 
   return {
