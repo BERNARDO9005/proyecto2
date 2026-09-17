@@ -179,3 +179,72 @@ export function formatNum(value, decimals = 6) {
   }
   return Number(value.toFixed(decimals)).toString();
 }
+
+/**
+ * Valida y compila una función para sistemas de EDOs: f(t, y1, y2).
+ * Proporciona alias de variables comunes:
+ * - t, x
+ * - y1, y
+ * - y2, v, z
+ * @param {string} expression
+ */
+export function compileSystemFunction(expression) {
+  if (!expression || typeof expression !== 'string' || expression.trim() === '') {
+    throw new Error('La expresión matemática no puede estar vacía.');
+  }
+
+  const sanitized = expression.trim();
+  let parsedNode;
+
+  try {
+    parsedNode = math.parse(sanitized);
+  } catch (err) {
+    throw new Error(`Error de sintaxis en expresión: ${err.message || 'Expresión no válida.'}`);
+  }
+
+  const compiled = parsedNode.compile();
+
+  const evaluate = (t, y1, y2) => {
+    try {
+      const scope = {
+        t,
+        x: t,
+        y1,
+        y: y1,
+        y2,
+        v: y2,
+        z: y2,
+        e: Math.E,
+        pi: Math.PI,
+        PI: Math.PI
+      };
+      const res = compiled.evaluate(scope);
+
+      if (typeof res === 'object' && res !== null && 're' in res) {
+        if (Math.abs(res.im) > 1e-12) {
+          throw new Error(`Resultado complejo en t = ${t}`);
+        }
+        return res.re;
+      }
+
+      if (typeof res !== 'number' || !Number.isFinite(res) || Number.isNaN(res)) {
+        throw new Error(`Resultado no numérico o infinito en t = ${t}`);
+      }
+
+      return res;
+    } catch (evalErr) {
+      throw new Error(`Error evaluando "${sanitized}" en (t=${t}, y1=${y1}, y2=${y2}): ${evalErr.message}`);
+    }
+  };
+
+  const toTex = () => {
+    try {
+      return parsedNode.toTex({ parenthesis: 'auto' });
+    } catch {
+      return sanitized;
+    }
+  };
+
+  return { evaluate, ast: parsedNode, toTex };
+}
+
