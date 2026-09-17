@@ -154,7 +154,7 @@ export function gaussianElimination(A_in, b_in) {
  */
 export function gaussJordan(A_in, b_in) {
   const n = A_in.length;
-  if (n < 2 || n > 10) throw new Error('La dimensión debe estar entre 2 y 10.');
+  if (n < 2 || n > 50) throw new Error('La dimensión debe estar entre 2 y 50.');
 
   const M = [];
   for (let i = 0; i < n; i++) {
@@ -164,8 +164,8 @@ export function gaussJordan(A_in, b_in) {
   const steps = [];
   steps.push({
     title: 'Matriz Aumentada Inicial [A | b]',
-    matrix: cloneMatrix(M),
-    description: 'Estado inicial.'
+    matrix: n <= MAX_DETAILED_N ? cloneMatrix(M) : null,
+    description: `Estado inicial (${n}×${n}).`
   });
 
   for (let col = 0; col < n; col++) {
@@ -189,11 +189,13 @@ export function gaussJordan(A_in, b_in) {
       const temp = M[col];
       M[col] = M[maxRow];
       M[maxRow] = temp;
-      steps.push({
-        title: `Pivoteo Parcial en Columna ${col + 1}`,
-        matrix: cloneMatrix(M),
-        description: `Intercambio de Fila ${col + 1} con Fila ${maxRow + 1}.`
-      });
+      if (n <= MAX_DETAILED_N || col === 0) {
+        steps.push({
+          title: `Pivoteo Parcial en Columna ${col + 1}`,
+          matrix: n <= MAX_DETAILED_N ? cloneMatrix(M) : null,
+          description: `Intercambio de Fila ${col + 1} con Fila ${maxRow + 1}.`
+        });
+      }
     }
 
     // Normalizar la fila pivote para que el elemento diagonal sea 1
@@ -202,11 +204,13 @@ export function gaussJordan(A_in, b_in) {
       M[col][j] /= pivot;
     }
 
-    steps.push({
-      title: `Normalización del Pivote en Fila ${col + 1}`,
-      matrix: cloneMatrix(M),
-      description: `Fila ${col + 1} dividida por su pivote ${pivot.toFixed(4)}.`
-    });
+    if (n <= MAX_DETAILED_N) {
+      steps.push({
+        title: `Normalización del Pivote en Fila ${col + 1}`,
+        matrix: cloneMatrix(M),
+        description: `Fila ${col + 1} dividida por su pivote ${pivot.toFixed(4)}.`
+      });
+    }
 
     // Eliminar todas las demás filas (tanto arriba como abajo)
     for (let row = 0; row < n; row++) {
@@ -218,11 +222,13 @@ export function gaussJordan(A_in, b_in) {
       }
     }
 
-    steps.push({
-      title: `Eliminación Gauss-Jordan sobre Columna ${col + 1}`,
-      matrix: cloneMatrix(M),
-      description: `Ceros generados en toda la columna ${col + 1}, excepto la diagonal.`
-    });
+    if (n <= MAX_DETAILED_N || col === n - 1 || col === 0) {
+      steps.push({
+        title: `Eliminación Gauss-Jordan sobre Columna ${col + 1}`,
+        matrix: n <= MAX_DETAILED_N ? cloneMatrix(M) : null,
+        description: `Ceros generados en toda la columna ${col + 1}, excepto la diagonal.`
+      });
+    }
   }
 
   const solution = M.map(row => row[n]);
