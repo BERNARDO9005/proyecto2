@@ -5,6 +5,7 @@ import {
   Layers,
   Sigma,
   TrendingUp,
+  Spline,
   Settings,
   HelpCircle,
   Menu,
@@ -16,6 +17,7 @@ import NonlinearModule from './modules/NonlinearModule';
 import LinearModule from './modules/LinearModule';
 import CalculusModule from './modules/CalculusModule';
 import OdeModule from './modules/OdeModule';
+import InterpolationModule from './modules/InterpolationModule';
 
 export default function App() {
   const [activeModule, setActiveModule] = useState('nonlinear');
@@ -51,6 +53,13 @@ export default function App() {
       subtitle: 'Problemas de Valor Inicial (EDO)',
       icon: <TrendingUp className="w-5 h-5 text-emerald-400" />,
       badge: 'Módulo 4'
+    },
+    {
+      id: 'interpolation',
+      title: 'Interpolación & Ajuste',
+      subtitle: 'Lagrange, Newton & Splines',
+      icon: <Spline className="w-5 h-5 text-amber-400" />,
+      badge: 'Módulo 5'
     }
   ];
 
@@ -210,6 +219,7 @@ export default function App() {
           {activeModule === 'linear' && <LinearModule precision={precision} />}
           {activeModule === 'calculus' && <CalculusModule precision={precision} />}
           {activeModule === 'ode' && <OdeModule precision={precision} />}
+          {activeModule === 'interpolation' && <InterpolationModule precision={precision} />}
         </main>
       </div>
 
@@ -241,7 +251,7 @@ export default function App() {
               <div>
                 <h5 className="font-bold text-indigo-300">2. Sistemas de Ecuaciones Lineales</h5>
                 <p>
-                  Eliminación Gaussiana con <strong>pivoteo parcial obligatorio</strong>, Gauss-Jordan, y métodos iterativos de Jacobi y Gauss-Seidel. Soporta matrices de 2×2 hasta 10×10. Detecta automáticamente <strong>matrices singulares o mal condicionadas</strong> (|pivote| &lt; 10⁻¹²) e incluye verificador de <strong>diagonal dominante</strong>.
+                  Eliminación Gaussiana con <strong>pivoteo parcial obligatorio</strong>, Gauss-Jordan, y métodos iterativos de Jacobi y Gauss-Seidel. Soporta matrices desde <strong>2×2 hasta 50×50</strong> procesadas asíncronamente mediante <strong>Web Worker</strong> en hilo secundario. Detecta automáticamente <strong>matrices singulares o mal condicionadas</strong> (|pivote| &lt; 10⁻¹²) e incluye verificador de <strong>diagonal dominante</strong>.
                 </p>
               </div>
 
@@ -255,7 +265,14 @@ export default function App() {
               <div>
                 <h5 className="font-bold text-emerald-300">4. Ecuaciones Diferenciales Ordinarias (EDO)</h5>
                 <p>
-                  Métodos de Euler, Heun (Euler modificado) y Runge-Kutta 4° Orden (RK4) para dy/dx = f(x, y). Modo comparativo simultáneo que grafica y contrasta las tres trayectorias sobre el mismo problema de valor inicial.
+                  Métodos de Euler, Heun (Euler modificado) y Runge-Kutta 4° Orden (RK4) para dy/dx = f(x, y). Modo comparativo simultáneo que grafica y contrasta las tres trayectorias sobre el mismo problema de valor inicial. Soporta además <strong>Sistemas Acoplados</strong> y <strong>EDOs de 2° Orden</strong> con retrato de fases.
+                </p>
+              </div>
+
+              <div>
+                <h5 className="font-bold text-amber-300">5. Interpolación y Ajuste de Curvas</h5>
+                <p>
+                  Polinomios de Lagrange (bases $L_i(x)$ y forma canónica expandida), Diferencias Divididas de Newton (tabla piramidal y esquema de Horner), y Splines Cúbicos Naturales con resolución tridiagonal de Thomas para segundas derivadas continuas $C^2$ y $S''(x_0) = S''(x_n) = 0$.
                 </p>
               </div>
             </div>
