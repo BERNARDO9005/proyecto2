@@ -8,6 +8,18 @@ export default defineConfig({
     port: 3000,
     open: false
   },
+  build: {
+    chunkSizeWarningLimit: 3800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-plotly': ['plotly.js-dist-min'],
+          'vendor-math': ['mathjs', 'katex'],
+          'vendor-react': ['react', 'react-dom', 'lucide-react']
+        }
+      }
+    }
+  },
   test: {
     globals: true,
     environment: 'node'
