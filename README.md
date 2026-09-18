@@ -21,11 +21,13 @@ Desarrollada con **React 18**, **Vite**, **Tailwind CSS (Dark Mode #0f172a)**, c
 - **Métodos**:
   - Directos: Eliminación Gaussiana con **pivoteo parcial obligatorio** y Gauss-Jordan.
   - Iterativos: Jacobi y Gauss-Seidel.
-- **Dimensiones**: Matrices dinámicas desde $2 \times 2$ hasta $10 \times 10$.
+- **Dimensiones**: Matrices dinámicas desde $2 \times 2$ hasta **$50 \times 50$** procesadas en segundo plano mediante **Web Worker**.
+- **Herramientas**: Generador de matrices aleatorias, matrices diagonalmente dominantes, sistemas tridiagonales e importador de matrices desde texto o CSV.
 - **Casos límite controlados**:
   - **Matriz singular o mal condicionada**: Detección estricta si el pivote $|a_{kk}| < 10^{-12}$ tras el pivoteo parcial.
   - **Dominancia diagonal**: Verificación analítica en tiempo real para Jacobi/Gauss-Seidel con advertencia visual.
-- **Salidas**: Matrices aumentadas $[A|b]$ paso a paso, historial de sustitución hacia atrás y tablas de convergencia.
+  - **No bloqueo de interfaz (60 FPS)**: Ejecución aislada en Web Worker con badge de tiempo en milisegundos y botón para cancelar cómputo.
+- **Salidas**: Vector solución con copiado al portapapeles, matrices aumentadas $[A|b]$ paso a paso, historial de sustitución hacia atrás y tablas de convergencia.
 
 ### 3. Módulo 3: Diferenciación e Integración Numérica
 - **Integración**:
@@ -41,16 +43,27 @@ Desarrollada con **React 18**, **Vite**, **Tailwind CSS (Dark Mode #0f172a)**, c
   - **Fuera de dominio**: Captura puntual si $f(x)$ queda indefinida (ej. $\ln(x)$ con $x \le 0$) indicando con precisión el subintervalo que falló sin romper la aplicación.
 
 ### 4. Módulo 4: Ecuaciones Diferenciales Ordinarias (EDO)
-- **Métodos**: Euler, Euler Modificado (Heun) y Runge-Kutta de 4° Orden (RK4).
-- **Entradas**: $\frac{dy}{dx} = f(x, y)$, condición inicial $(x_0, y_0)$, valor final $x_f$, paso $h > 0$.
-- **Modo Comparativo**: Simulación simultánea de los 3 métodos sobre el mismo gráfico y tabla para contrastar convergencias y errores.
-- **Casos límite controlados**: Validación estricta de $h > 0$, $x_f > x_0$ y límite de pasos para evitar congelamiento.
+- **Modos**:
+  - **1er Orden Individual y Comparativo**: Euler, Heun (Euler modificado) y Runge-Kutta 4° Orden (RK4) contrastados simultáneamente.
+  - **Sistemas de EDOs Acopladas (RK4 Vectorial)**: Solución de $\frac{dy_1}{dt} = f_1(t, y_1, y_2)$ y $\frac{dy_2}{dt} = f_2(t, y_1, y_2)$ (ej. Modelo Lotka-Volterra presa-depredador).
+  - **EDOs de 2° Orden**: Reducción canónica a sistema de 1er orden para resolver problemas mecánicos como osciladores armónicos amortiguados y péndulos no lineales $y'' = f(t, y, y')$.
+- **Visualización**: Series temporales simultáneas y gráfico 2D de **Retrato de Fases** (espacio de estados $y_2$ vs $y_1$ / velocidad vs posición).
+- **Casos límite controlados**: Validación estricta de $h > 0$, $t_f > t_0$ y protección contra desbordamiento o divergencia numérica.
+
+### 5. Módulo 5: Interpolación y Ajuste de Curvas
+- **Métodos**:
+  - **Polinomios de Lagrange**: Cálculo de polinomios base $L_i(x)$, suma ponderada y expansión a forma canónica $P(x) = a_n x^n + \dots + a_0$.
+  - **Diferencias Divididas de Newton**: Tabla piramidal completa de diferencias divididas, fórmula en forma de Newton y evaluación eficiente mediante esquema anidado de Horner.
+  - **Splines Cúbicos Naturales**: Ajuste suave de clase $C^2$ con segundas derivadas continuas resuelto mediante el algoritmo tridiagonal de Thomas ($S''(x_0) = S''(x_n) = 0$).
+- **Herramientas**: Editor interactivo de nodos $(x_i, y_i)$, importador CSV/texto, evaluador puntual en $x^*$, presets (fenómeno de Runge, termodinámica, cinemática) y gráfico interactivo con nodos destacados y curva continua.
+- **Caso límite controlado**: Detección estricta de abscisas duplicadas ($x_i = x_j$) antes del cálculo para evitar divisiones entre cero.
 
 ---
 
 ## 🛠️ Tecnologías y Arquitectura
 
-- **Framework**: React 18 + Vite (SPA 100% Client-Side).
+- **Framework**: React 18 + Vite (SPA 100% Client-Side con Code-Splitting por Rollup).
+- **Concurrencia**: Web Worker dedicado (`linearWorker.js`) para álgebra lineal de gran escala en hilo secundario.
 - **Estilos**: Tailwind CSS con paleta Slate Dark Mode (`#0f172a`, `#1e293b`).
 - **Motor Matemático**: `mathjs` con análisis sintáctico por AST y derivadas simbólicas (con fallback numérico de 4to orden). **Prohibido el uso de `eval()`**.
 - **Tipografía Matemática**: KaTeX para renderizado en vivo de fórmulas.
