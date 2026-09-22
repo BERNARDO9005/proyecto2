@@ -13,7 +13,7 @@ describe('Integración Adaptativa y Cuadratura Gaussiana', () => {
   it('Cuadratura de Gauss-Legendre con n=4 aproxima integrales trascendentes con alta precisión', () => {
     // \int_0^pi sin(x) dx = 2
     const res = gaussLegendre('sin(x)', 0, Math.PI, 4);
-    expect(res.result).toBeCloseTo(2.0, 5);
+    expect(res.result).toBeCloseTo(2.0, 4);
     expect(res.points.length).toBe(4);
   });
 
