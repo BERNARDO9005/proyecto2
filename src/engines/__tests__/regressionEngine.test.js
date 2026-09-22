@@ -99,12 +99,12 @@ describe('Ajuste de Curvas por Mínimos Cuadrados (Regresión)', () => {
     expect(() => exponentialRegression(invalidPoints)).toThrowError(/y ≤ 0/);
   });
 
-  it('Rechaza grado excesivo en regresión polinómica', () => {
+  it('Rechaza grado excesivo o insuficientes puntos en regresión polinómica', () => {
     const points = [
       { x: 1, y: 2 },
       { x: 2, y: 3 }
     ];
-    expect(() => polynomialRegression(points, 2)).toThrowError(/menor que el número de puntos/);
+    expect(() => polynomialRegression(points, 2)).toThrowError(/Se requieren al menos 3 puntos/);
   });
 
   it('curveFitting despacha correctamente a los diferentes métodos', () => {
