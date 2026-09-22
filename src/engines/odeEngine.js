@@ -379,3 +379,180 @@ export function rk4SecondOrder(expr, t0, y0, v0, tf, h) {
   });
 }
 
+/* =========================================================================
+ * RUNGE-KUTTA ADAPTATIVO (RK45 / DORMAND-PRINCE)
+ * ========================================================================= */
+
+// Coeficientes del Tableau de Butcher para Dormand-Prince (DP54 / RK45)
+const DP_C = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
+const DP_A = [
+  [],
+  [1 / 5],
+  [3 / 40, 9 / 40],
+  [44 / 45, -56 / 15, 32 / 9],
+  [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
+  [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656],
+  [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]
+];
+const DP_B5 = [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0];
+const DP_E = [
+  71 / 57600,
+  0,
+  -71 / 16695,
+  71 / 1920,
+  -17253 / 339200,
+  22 / 525,
+  -1 / 40
+];
+
+/**
+ * Runge-Kutta Adaptativo de Orden 4(5) (Dormand-Prince / RK45).
+ * Control automático del tamaño de paso h según tolerancia al error local.
+ */
+export function rk45(expression, t0, y0, tf, options = {}) {
+  if (typeof t0 !== 'number' || typeof y0 !== 'number' || typeof tf !== 'number') {
+    throw new Error('Los parámetros iniciales (t0, y0, tf) deben ser valores numéricos.');
+  }
+  if (tf <= t0) {
+    throw new Error(`El tiempo final tf (${tf}) debe ser mayor que el tiempo inicial t0 (${t0}).`);
+  }
+
+  const tol = typeof options.tol === 'number' && options.tol > 0 ? options.tol : 1e-5;
+  const hMin = options.hMin || 1e-12;
+  const hMax = options.hMax || (tf - t0);
+  let h = options.h0 || Math.min(0.05, (tf - t0) / 20);
+
+  const { evaluate } = compileFunction2D(expression);
+
+  const trajectory = [];
+  const allAttempts = [];
+
+  let t = t0;
+  let y = y0;
+  let stepCount = 0;
+  let acceptedCount = 0;
+  let rejectedCount = 0;
+
+  trajectory.push({
+    i: 0,
+    t,
+    y,
+    h,
+    error: 0,
+    accepted: true
+  });
+
+  const SAFETY = 0.85;
+  const MAX_GROWTH = 5.0;
+  const MIN_SHRINK = 0.1;
+
+  while (t < tf && stepCount < MAX_STEPS_ALLOWED) {
+    stepCount++;
+
+    // Ajustar h para no exceder tf
+    if (t + h > tf) {
+      h = tf - t;
+    }
+
+    // Calcular las 7 etapas k_1 ... k_7
+    const k = new Array(7);
+    try {
+      k[0] = evaluate(t, y);
+      for (let i = 1; i < 7; i++) {
+        let sumA = 0;
+        for (let j = 0; j < i; j++) {
+          sumA += DP_A[i][j] * k[j];
+        }
+        const ti = t + DP_C[i] * h;
+        const yi = y + h * sumA;
+        k[i] = evaluate(ti, yi);
+      }
+    } catch (err) {
+      throw new Error(`Error al evaluar la función diferencial f(t, y) en t = ${t.toFixed(4)}: ${err.message}`);
+    }
+
+    // Solución orden 5
+    let dy5 = 0;
+    for (let i = 0; i < 7; i++) {
+      dy5 += DP_B5[i] * k[i];
+    }
+    const y5 = y + h * dy5;
+
+    // Estimación del error local: E = h * sum(e_i * k_i)
+    let localError = 0;
+    for (let i = 0; i < 7; i++) {
+      localError += DP_E[i] * k[i];
+    }
+    const absError = Math.abs(h * localError);
+
+    // Escala de tolerancia compuesta (absoluta + relativa)
+    const scale = tol + tol * Math.max(Math.abs(y), Math.abs(y5));
+    const errorRatio = absError / scale;
+
+    const isAccepted = errorRatio <= 1.0 || h <= hMin;
+
+    allAttempts.push({
+      attempt: stepCount,
+      t,
+      y,
+      h,
+      absError,
+      errorRatio,
+      accepted: isAccepted
+    });
+
+    if (isAccepted) {
+      acceptedCount++;
+      t = t + h;
+      y = y5;
+
+      trajectory.push({
+        i: acceptedCount,
+        t,
+        y,
+        h,
+        error: absError,
+        accepted: true
+      });
+
+      // Factor de ajuste para el siguiente paso
+      let factor = errorRatio > 1e-12 ? SAFETY * Math.pow(1 / errorRatio, 0.2) : MAX_GROWTH;
+      factor = Math.min(MAX_GROWTH, Math.max(MIN_SHRINK, factor));
+      h = Math.min(hMax, Math.max(hMin, h * factor));
+    } else {
+      rejectedCount++;
+      // Paso rechazado: reducir h y reintentar sin avanzar t
+      let factor = SAFETY * Math.pow(1 / errorRatio, 0.25);
+      factor = Math.min(1.0, Math.max(MIN_SHRINK, factor));
+      h = Math.max(hMin, h * factor);
+
+      if (h <= hMin && t + h === t) {
+        throw new Error(
+          `El paso h se redujo al límite mínimo (${hMin.toExponential(2)}) sin satisfacer la tolerancia. Posible singularidad o rigidez severa en t = ${t.toFixed(4)}.`
+        );
+      }
+    }
+  }
+
+  if (stepCount >= MAX_STEPS_ALLOWED && t < tf) {
+    throw new Error(
+      `Se superó el límite de seguridad de ${MAX_STEPS_ALLOWED} pasos sin alcanzar tf = ${tf}. Considere relajar la tolerancia tol.`
+    );
+  }
+
+  return {
+    method: 'Runge-Kutta Adaptativo (RK45 / Dormand-Prince)',
+    t0,
+    y0,
+    tf,
+    tol,
+    finalY: trajectory[trajectory.length - 1].y,
+    totalSteps: stepCount,
+    acceptedSteps: acceptedCount,
+    rejectedSteps: rejectedCount,
+    trajectory,
+    allAttempts
+  };
+}
+
+

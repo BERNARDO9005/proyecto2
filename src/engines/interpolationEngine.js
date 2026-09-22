@@ -1,5 +1,6 @@
 import * as math from 'mathjs';
 import { formatNum } from './mathParser';
+import { gaussianElimination } from './linearSystemEngine';
 
 /**
  * MÓDULO 5: INTERPOLACIÓN Y AJUSTE DE CURVAS
@@ -385,3 +386,349 @@ export function cubicSplineNatural(rawPoints) {
     evaluate
   };
 }
+
+/* =========================================================================
+ * AJUSTE DE CURVAS POR MÍNIMOS CUADRADOS (REGRESIÓN)
+ * ========================================================================= */
+
+/**
+ * Valida los puntos para regresión por mínimos cuadrados.
+ */
+export function validateRegressionPoints(points, minPoints = 2) {
+  if (!Array.isArray(points) || points.length < minPoints) {
+    throw new Error(`Se requieren al menos ${minPoints} puntos para este modelo de regresión.`);
+  }
+
+  for (let i = 0; i < points.length; i++) {
+    const pt = points[i];
+    if (typeof pt.x !== 'number' || typeof pt.y !== 'number' || !Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
+      throw new Error(`El punto en la fila ${i + 1} contiene coordenadas no numéricas o inválidas.`);
+    }
+  }
+
+  return points;
+}
+
+/**
+ * Regresión Lineal Simple: y = a1 * x + a0
+ */
+export function linearRegression(rawPoints) {
+  const points = validateRegressionPoints(rawPoints, 2);
+  const n = points.length;
+
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumX2 = 0;
+
+  for (let i = 0; i < n; i++) {
+    const { x, y } = points[i];
+    sumX += x;
+    sumY += y;
+    sumXY += x * y;
+    sumX2 += x * x;
+  }
+
+  const denom = n * sumX2 - sumX * sumX;
+  if (Math.abs(denom) < 1e-14) {
+    throw new Error('No es posible ajustar una recta: todos los valores de x son idénticos.');
+  }
+
+  const a1 = (n * sumXY - sumX * sumY) / denom;
+  const a0 = (sumY - a1 * sumX) / n;
+
+  const evaluate = (x) => a1 * x + a0;
+
+  const yMean = sumY / n;
+  let ssTot = 0;
+  let ssRes = 0;
+  const residuals = [];
+
+  for (let i = 0; i < n; i++) {
+    const { x, y } = points[i];
+    const yHat = evaluate(x);
+    const res = y - yHat;
+    ssTot += Math.pow(y - yMean, 2);
+    ssRes += Math.pow(res, 2);
+    residuals.push({ x, y, yHat, residual: res });
+  }
+
+  const rSquared = ssTot > 1e-14 ? Math.max(0, Math.min(1, 1 - ssRes / ssTot)) : 1;
+  const standardError = n > 2 ? Math.sqrt(ssRes / (n - 2)) : 0;
+
+  const sign = a0 >= 0 ? '+' : '-';
+  const formula = `y = ${formatNum(a1, 4)}x ${sign} ${formatNum(Math.abs(a0), 4)}`;
+  const formulaLatex = `y = ${formatNum(a1, 4)}x ${sign} ${formatNum(Math.abs(a0), 4)}`;
+
+  return {
+    type: 'linear',
+    name: 'Regresión Lineal Simple',
+    coefficients: { a0, a1 },
+    formula,
+    formulaLatex,
+    rSquared,
+    standardError,
+    ssRes,
+    ssTot,
+    residuals,
+    evaluate
+  };
+}
+
+/**
+ * Regresión Polinómica de Grado m: y = a0 + a1*x + ... + am*x^m
+ */
+export function polynomialRegression(rawPoints, degree = 2) {
+  const points = validateRegressionPoints(rawPoints, degree + 1);
+  const n = points.length;
+  const m = parseInt(degree, 10);
+
+  if (isNaN(m) || m < 1) {
+    throw new Error('El grado del polinomio debe ser al menos 1.');
+  }
+  if (m >= n) {
+    throw new Error(`El grado del polinomio (${m}) debe ser menor que el número de puntos (${n}).`);
+  }
+
+  // Construir sistema de ecuaciones normales: (Xᵀ * X) * a = Xᵀ * y
+  const dim = m + 1;
+  const A = Array.from({ length: dim }, () => new Array(dim).fill(0));
+  const B = new Array(dim).fill(0);
+
+  // Precomputar sumas de potencias sum(x^k) para k = 0 ... 2*m
+  const sumPowers = new Array(2 * m + 1).fill(0);
+  for (let i = 0; i < n; i++) {
+    const x = points[i].x;
+    let power = 1;
+    for (let k = 0; k <= 2 * m; k++) {
+      sumPowers[k] += power;
+      power *= x;
+    }
+  }
+
+  // Precomputar sumas sum(x^j * y) para j = 0 ... m
+  for (let i = 0; i < n; i++) {
+    const { x, y } = points[i];
+    let power = 1;
+    for (let j = 0; j <= m; j++) {
+      B[j] += power * y;
+      power *= x;
+    }
+  }
+
+  for (let row = 0; row < dim; row++) {
+    for (let col = 0; col < dim; col++) {
+      A[row][col] = sumPowers[row + col];
+    }
+  }
+
+  // Resolver mediante eliminación gaussiana con pivoteo parcial
+  const { solution } = gaussianElimination(A, B);
+  const coeffs = solution; // a0, a1, ..., am
+
+  const evaluate = (x) => {
+    let res = 0;
+    let power = 1;
+    for (let j = 0; j <= m; j++) {
+      res += coeffs[j] * power;
+      power *= x;
+    }
+    return res;
+  };
+
+  const sumY = points.reduce((acc, p) => acc + p.y, 0);
+  const yMean = sumY / n;
+  let ssTot = 0;
+  let ssRes = 0;
+  const residuals = [];
+
+  for (let i = 0; i < n; i++) {
+    const { x, y } = points[i];
+    const yHat = evaluate(x);
+    const res = y - yHat;
+    ssTot += Math.pow(y - yMean, 2);
+    ssRes += Math.pow(res, 2);
+    residuals.push({ x, y, yHat, residual: res });
+  }
+
+  const rSquared = ssTot > 1e-14 ? Math.max(0, Math.min(1, 1 - ssRes / ssTot)) : 1;
+  const df = n - (m + 1);
+  const standardError = df > 0 ? Math.sqrt(ssRes / df) : 0;
+
+  // Construir fórmula readable y LaTeX
+  let formulaParts = [];
+  let latexParts = [];
+  for (let j = m; j >= 0; j--) {
+    const c = coeffs[j];
+    if (j === 0) {
+      const sign = c >= 0 && formulaParts.length > 0 ? '+ ' : (c < 0 ? '- ' : '');
+      formulaParts.push(`${sign}${formatNum(Math.abs(c), 4)}`);
+      latexParts.push(`${sign}${formatNum(Math.abs(c), 4)}`);
+    } else if (j === 1) {
+      const sign = c >= 0 && formulaParts.length > 0 ? '+ ' : (c < 0 ? '- ' : '');
+      formulaParts.push(`${sign}${formatNum(Math.abs(c), 4)}x`);
+      latexParts.push(`${sign}${formatNum(Math.abs(c), 4)}x`);
+    } else {
+      const sign = c >= 0 && formulaParts.length > 0 ? '+ ' : (c < 0 ? '- ' : '');
+      formulaParts.push(`${sign}${formatNum(Math.abs(c), 4)}x^${j}`);
+      latexParts.push(`${sign}${formatNum(Math.abs(c), 4)}x^{${j}}`);
+    }
+  }
+
+  const formula = `y = ${formulaParts.join(' ')}`;
+  const formulaLatex = `y = ${latexParts.join(' ')}`;
+
+  return {
+    type: 'polynomial',
+    name: `Regresión Polinómica (Grado ${m})`,
+    degree: m,
+    coefficients: coeffs,
+    formula,
+    formulaLatex,
+    rSquared,
+    standardError,
+    ssRes,
+    ssTot,
+    residuals,
+    evaluate
+  };
+}
+
+/**
+ * Regresión Exponencial: y = a * e^(b * x)
+ * Linealización: ln(y) = ln(a) + b * x
+ */
+export function exponentialRegression(rawPoints) {
+  const points = validateRegressionPoints(rawPoints, 2);
+  const n = points.length;
+
+  for (let i = 0; i < n; i++) {
+    if (points[i].y <= 0) {
+      throw new Error(
+        `El punto (${points[i].x}, ${points[i].y}) tiene y ≤ 0. La regresión exponencial requiere que todos los valores de y sean estrictamente positivos.`
+      );
+    }
+  }
+
+  const transformedPoints = points.map(p => ({ x: p.x, y: Math.log(p.y) }));
+  const lin = linearRegression(transformedPoints);
+
+  const b = lin.coefficients.a1;
+  const a = Math.exp(lin.coefficients.a0);
+
+  const evaluate = (x) => a * Math.exp(b * x);
+
+  const sumY = points.reduce((acc, p) => acc + p.y, 0);
+  const yMean = sumY / n;
+  let ssTot = 0;
+  let ssRes = 0;
+  const residuals = [];
+
+  for (let i = 0; i < n; i++) {
+    const { x, y } = points[i];
+    const yHat = evaluate(x);
+    const res = y - yHat;
+    ssTot += Math.pow(y - yMean, 2);
+    ssRes += Math.pow(res, 2);
+    residuals.push({ x, y, yHat, residual: res });
+  }
+
+  const rSquared = ssTot > 1e-14 ? Math.max(0, Math.min(1, 1 - ssRes / ssTot)) : 1;
+  const standardError = n > 2 ? Math.sqrt(ssRes / (n - 2)) : 0;
+
+  const formula = `y = ${formatNum(a, 4)} * e^(${formatNum(b, 4)}x)`;
+  const formulaLatex = `y = ${formatNum(a, 4)} \\cdot e^{${formatNum(b, 4)}x}`;
+
+  return {
+    type: 'exponential',
+    name: 'Regresión Exponencial',
+    coefficients: { a, b },
+    formula,
+    formulaLatex,
+    rSquared,
+    standardError,
+    ssRes,
+    ssTot,
+    residuals,
+    evaluate
+  };
+}
+
+/**
+ * Regresión Potencial: y = a * x^b
+ * Linealización: ln(y) = ln(a) + b * ln(x)
+ */
+export function powerRegression(rawPoints) {
+  const points = validateRegressionPoints(rawPoints, 2);
+  const n = points.length;
+
+  for (let i = 0; i < n; i++) {
+    if (points[i].x <= 0 || points[i].y <= 0) {
+      throw new Error(
+        `El punto (${points[i].x}, ${points[i].y}) contiene valores ≤ 0. La regresión potencial requiere x > 0 e y > 0.`
+      );
+    }
+  }
+
+  const transformedPoints = points.map(p => ({ x: Math.log(p.x), y: Math.log(p.y) }));
+  const lin = linearRegression(transformedPoints);
+
+  const b = lin.coefficients.a1;
+  const a = Math.exp(lin.coefficients.a0);
+
+  const evaluate = (x) => a * Math.pow(x, b);
+
+  const sumY = points.reduce((acc, p) => acc + p.y, 0);
+  const yMean = sumY / n;
+  let ssTot = 0;
+  let ssRes = 0;
+  const residuals = [];
+
+  for (let i = 0; i < n; i++) {
+    const { x, y } = points[i];
+    const yHat = evaluate(x);
+    const res = y - yHat;
+    ssTot += Math.pow(y - yMean, 2);
+    ssRes += Math.pow(res, 2);
+    residuals.push({ x, y, yHat, residual: res });
+  }
+
+  const rSquared = ssTot > 1e-14 ? Math.max(0, Math.min(1, 1 - ssRes / ssTot)) : 1;
+  const standardError = n > 2 ? Math.sqrt(ssRes / (n - 2)) : 0;
+
+  const formula = `y = ${formatNum(a, 4)} * x^(${formatNum(b, 4)})`;
+  const formulaLatex = `y = ${formatNum(a, 4)} \\cdot x^{${formatNum(b, 4)}}`;
+
+  return {
+    type: 'power',
+    name: 'Regresión Potencial',
+    coefficients: { a, b },
+    formula,
+    formulaLatex,
+    rSquared,
+    standardError,
+    ssRes,
+    ssTot,
+    residuals,
+    evaluate
+  };
+}
+
+/**
+ * Método unificado de ajuste de curvas (Mínimos Cuadrados).
+ */
+export function curveFitting(points, type = 'linear', options = { degree: 2 }) {
+  switch (type) {
+    case 'linear':
+      return linearRegression(points);
+    case 'polynomial':
+      return polynomialRegression(points, options.degree);
+    case 'exponential':
+      return exponentialRegression(points);
+    case 'power':
+      return powerRegression(points);
+    default:
+      throw new Error(`Tipo de regresión no soportado: '${type}'.`);
+  }
+}
+

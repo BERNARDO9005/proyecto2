@@ -319,3 +319,162 @@ export function computeFiniteDifferences(expression, x0, h) {
     ]
   };
 }
+
+/* =========================================================================
+ * INTEGRACIÓN ADAPTATIVA Y CUADRATURA GAUSSIANA
+ * ========================================================================= */
+
+// Nodos y pesos normalizados de Gauss-Legendre en el intervalo [-1, 1]
+const GAUSS_LEGENDRE_NODES_WEIGHTS = {
+  2: [
+    { t: -1 / Math.sqrt(3), w: 1 },
+    { t: 1 / Math.sqrt(3), w: 1 }
+  ],
+  3: [
+    { t: -Math.sqrt(3 / 5), w: 5 / 9 },
+    { t: 0, w: 8 / 9 },
+    { t: Math.sqrt(3 / 5), w: 5 / 9 }
+  ],
+  4: [
+    { t: -Math.sqrt((3 + 2 * Math.sqrt(6 / 5)) / 7), w: (18 - Math.sqrt(30)) / 36 },
+    { t: -Math.sqrt((3 - 2 * Math.sqrt(6 / 5)) / 7), w: (18 + Math.sqrt(30)) / 36 },
+    { t: Math.sqrt((3 - 2 * Math.sqrt(6 / 5)) / 7), w: (18 + Math.sqrt(30)) / 36 },
+    { t: Math.sqrt((3 + 2 * Math.sqrt(6 / 5)) / 7), w: (18 - Math.sqrt(30)) / 36 }
+  ],
+  5: [
+    { t: -(1 / 3) * Math.sqrt(5 + 2 * Math.sqrt(10 / 7)), w: (322 - 13 * Math.sqrt(70)) / 900 },
+    { t: -(1 / 3) * Math.sqrt(5 - 2 * Math.sqrt(10 / 7)), w: (322 + 13 * Math.sqrt(70)) / 900 },
+    { t: 0, w: 128 / 225 },
+    { t: (1 / 3) * Math.sqrt(5 - 2 * Math.sqrt(10 / 7)), w: (322 + 13 * Math.sqrt(70)) / 900 },
+    { t: (1 / 3) * Math.sqrt(5 + 2 * Math.sqrt(10 / 7)), w: (322 - 13 * Math.sqrt(70)) / 900 }
+  ],
+  6: [
+    { t: -0.9324695142031521, w: 0.1713244923791704 },
+    { t: -0.6612093864662645, w: 0.3607615730481386 },
+    { t: -0.2386191860831969, w: 0.4679139345726910 },
+    { t: 0.2386191860831969, w: 0.4679139345726910 },
+    { t: 0.6612093864662645, w: 0.3607615730481386 },
+    { t: 0.9324695142031521, w: 0.1713244923791704 }
+  ]
+};
+
+/**
+ * Cuadratura de Gauss-Legendre (n = 2, 3, 4, 5, 6 puntos).
+ * Mapea [-1, 1] a [a, b]: x = ((b - a)/2) * t + (a + b)/2
+ * Integral ≈ ((b - a) / 2) * sum(w_i * f(x_i))
+ */
+export function gaussLegendre(expression, a, b, nPoints = 3) {
+  if (a >= b) throw new Error('El límite superior b debe ser mayor que el límite inferior a.');
+  const n = parseInt(nPoints, 10);
+  if (!GAUSS_LEGENDRE_NODES_WEIGHTS[n]) {
+    throw new Error(`El número de puntos para Gauss-Legendre debe ser 2, 3, 4, 5 o 6 (se recibió: ${nPoints}).`);
+  }
+
+  const { evaluate } = compileFunction1D(expression);
+  const halfLength = (b - a) / 2;
+  const midPoint = (a + b) / 2;
+
+  const nodes = GAUSS_LEGENDRE_NODES_WEIGHTS[n];
+  const mappedPoints = nodes.map(item => halfLength * item.t + midPoint);
+
+  const fxValues = evaluatePointsSafely(evaluate, mappedPoints, a, b);
+
+  let sum = 0;
+  const points = [];
+  for (let i = 0; i < n; i++) {
+    const term = halfLength * nodes[i].w * fxValues[i];
+    sum += term;
+    points.push({
+      i: i + 1,
+      t: nodes[i].t,
+      w: nodes[i].w,
+      x: mappedPoints[i],
+      fx: fxValues[i],
+      term
+    });
+  }
+
+  return {
+    method: 'Cuadratura de Gauss-Legendre',
+    result: sum,
+    n,
+    a,
+    b,
+    points
+  };
+}
+
+/**
+ * Integración de Romberg con Extrapolación de Richardson.
+ * Construye una tabla triangular R[k][j] a partir del método del trapecio con 2^k subintervalos.
+ */
+export function rombergIntegration(expression, a, b, tol = 1e-8, maxLevel = 6) {
+  if (a >= b) throw new Error('El límite superior b debe ser mayor que el límite inferior a.');
+  const limit = Math.min(Math.max(2, parseInt(maxLevel, 10) || 6), 10);
+
+  const { evaluate } = compileFunction1D(expression);
+
+  // Evaluar extremos a y b
+  const [fa, fb] = evaluatePointsSafely(evaluate, [a, b], a, b);
+
+  const R = [];
+  let numEvaluations = 2;
+
+  // k = 0: Trapecio simple (1 subintervalo, 2^0 = 1)
+  const h0 = b - a;
+  R[0] = [(h0 / 2) * (fa + fb)];
+
+  let converged = false;
+  let finalLevel = 1;
+  let estimatedError = null;
+
+  for (let k = 1; k < limit; k++) {
+    finalLevel = k + 1;
+    const nSub = Math.pow(2, k);
+    const hk = (b - a) / nSub;
+
+    // Sumar solo los nuevos puntos impares: x_m = a + (2m - 1) * hk
+    const newPoints = [];
+    for (let m = 1; m <= nSub / 2; m++) {
+      newPoints.push(a + (2 * m - 1) * hk);
+    }
+
+    const newFx = evaluatePointsSafely(evaluate, newPoints, a, b);
+    numEvaluations += newFx.length;
+    const sumNew = newFx.reduce((acc, val) => acc + val, 0);
+
+    R[k] = new Array(k + 1).fill(0);
+    // R[k][0] = 0.5 * R[k-1][0] + hk * sumNew
+    R[k][0] = 0.5 * R[k - 1][0] + hk * sumNew;
+
+    // Extrapolación de Richardson:
+    // R[k][j] = (4^j * R[k][j-1] - R[k-1][j-1]) / (4^j - 1)
+    for (let j = 1; j <= k; j++) {
+      const factor = Math.pow(4, j);
+      R[k][j] = (factor * R[k][j - 1] - R[k - 1][j - 1]) / (factor - 1);
+    }
+
+    // Criterio de parada: diferencia entre diagonales consecutivas
+    const diff = Math.abs(R[k][k] - R[k - 1][k - 1]);
+    estimatedError = diff;
+
+    if (diff < tol) {
+      converged = true;
+      break;
+    }
+  }
+
+  const result = R[finalLevel - 1][finalLevel - 1];
+
+  return {
+    method: 'Integración de Romberg (Extrapolación de Richardson)',
+    result,
+    table: R,
+    levels: finalLevel,
+    converged,
+    tol,
+    estimatedError,
+    numEvaluations
+  };
+}
+
