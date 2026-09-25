@@ -24,7 +24,8 @@ export default function MatrixInput({
   setVectorB,
   vectorX0,
   setVectorX0,
-  isIterative = false
+  isIterative = false,
+  hideVectorB = false
 }) {
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvText, setCsvText] = useState('');
@@ -175,6 +176,24 @@ export default function MatrixInput({
       ]);
       setVectorB([34, 64, -22]);
       if (setVectorX0) setVectorX0([0, 0, 0]);
+    } else if (type === 'cholesky3x3') {
+      setN(3);
+      setMatrixA([
+        [4, 12, -16],
+        [12, 37, -43],
+        [-16, -43, 98]
+      ]);
+      setVectorB([8, 18, 44]);
+      if (setVectorX0) setVectorX0([0, 0, 0]);
+    } else if (type === 'symmetricEigen3x3') {
+      setN(3);
+      setMatrixA([
+        [4, 1, 1],
+        [1, 3, -1],
+        [1, -1, 2]
+      ]);
+      setVectorB([1, 1, 1]);
+      if (setVectorX0) setVectorX0([1, 1, 1]);
     } else if (type === 'singular') {
       setN(3);
       setMatrixA([
@@ -397,8 +416,12 @@ export default function MatrixInput({
             <div className="flex-1 text-center font-semibold tracking-wider text-slate-300">
               MATRIZ DE COEFICIENTES [A] ({n}×{n})
             </div>
-            <div className="w-4 text-center text-slate-500">|</div>
-            <div className="w-24 text-center font-semibold text-teal-400">[b]</div>
+            {!hideVectorB && (
+              <>
+                <div className="w-4 text-center text-slate-500">|</div>
+                <div className="w-24 text-center font-semibold text-teal-400">[b]</div>
+              </>
+            )}
             {isIterative && vectorX0 && (
               <div className="w-24 text-center font-semibold text-indigo-400">[x₀]</div>
             )}
@@ -438,19 +461,23 @@ export default function MatrixInput({
                   })}
                 </div>
 
-                <span className="text-slate-600 font-mono font-bold px-0.5">|</span>
+                {!hideVectorB && (
+                  <>
+                    <span className="text-slate-600 font-mono font-bold px-0.5">|</span>
 
-                {/* Celda de b */}
-                <div className="w-24 shrink-0">
-                  <input
-                    type="number"
-                    step="any"
-                    value={vectorB[i] ?? 0}
-                    onChange={(e) => handleBChange(i, e.target.value)}
-                    className="w-full px-2 py-1 text-center font-mono text-xs rounded-lg border bg-teal-950/40 border-teal-600/70 text-teal-300 font-semibold focus:border-teal-400"
-                    title={`b[${i + 1}]`}
-                  />
-                </div>
+                    {/* Celda de b */}
+                    <div className="w-24 shrink-0">
+                      <input
+                        type="number"
+                        step="any"
+                        value={vectorB[i] ?? 0}
+                        onChange={(e) => handleBChange(i, e.target.value)}
+                        className="w-full px-2 py-1 text-center font-mono text-xs rounded-lg border bg-teal-950/40 border-teal-600/70 text-teal-300 font-semibold focus:border-teal-400"
+                        title={`b[${i + 1}]`}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {/* Celda de x0 si aplica */}
                 {isIterative && vectorX0 && (
