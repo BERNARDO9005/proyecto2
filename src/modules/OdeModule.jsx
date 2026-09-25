@@ -16,7 +16,8 @@ import {
   rk4,
   solveAllOdeMethods,
   rk4System,
-  rk4SecondOrder
+  rk4SecondOrder,
+  rk45
 } from '../engines/odeEngine';
 import LatexRenderer from '../components/LatexRenderer';
 import InteractivePlot from '../components/InteractivePlot';
@@ -27,7 +28,7 @@ export default function OdeModule({ precision = 6 }) {
   // Tipo de problema: 'single' (1er orden) | 'system' (sistema acoplado) | 'secondOrder' (2do orden)
   const [problemType, setProblemType] = useState('single');
 
-  // Modo para 1er orden: 'all' | 'rk4' | 'heun' | 'euler'
+  // Modo para 1er orden: 'all' | 'rk45' | 'rk4' | 'heun' | 'euler'
   const [method, setMethod] = useState('all');
 
   // Estados para 1er orden simple
@@ -36,6 +37,7 @@ export default function OdeModule({ precision = 6 }) {
   const [paramY0, setParamY0] = useState('1');
   const [paramXf, setParamXf] = useState('1');
   const [paramH, setParamH] = useState('0.1');
+  const [odeTol, setOdeTol] = useState('0.00001');
 
   // Estados para Sistema de EDOs: dy1/dt = f1(t, y1, y2), dy2/dt = f2(t, y1, y2)
   const [sysF1, setSysF1] = useState('1.2*y1 - 0.6*y1*y2');
@@ -144,6 +146,12 @@ export default function OdeModule({ precision = 6 }) {
             res = { type: 'single', single: heun(expression, x0, y0, xf, h), isMulti: false };
           } else if (method === 'rk4') {
             res = { type: 'single', single: rk4(expression, x0, y0, xf, h), isMulti: false };
+          } else if (method === 'rk45') {
+            const rk45Res = rk45(expression, x0, y0, xf, {
+              tol: parseFloat(odeTol) || 1e-5,
+              h0: parseFloat(paramH) || 0.05
+            });
+            res = { type: 'single', single: rk45Res, isMulti: false, isAdaptive: true };
           } else {
             const multi = solveAllOdeMethods(expression, x0, y0, xf, h);
             res = { type: 'single', multi, isMulti: true };
@@ -217,19 +225,43 @@ export default function OdeModule({ precision = 6 }) {
       ];
     } else {
       const single = result.single;
+      const isAdaptive = result.isAdaptive;
       return [
         {
-          x: single.trajectory.map((p) => p.x),
+          x: single.trajectory.map((p) => p.x ?? p.t),
           y: single.trajectory.map((p) => p.y),
           type: 'scatter',
           mode: 'lines+markers',
-          name: `${single.method}`,
+          name: isAdaptive
+            ? `RK45 (Dormand-Prince): y(${paramXf}) ≈ ${formatNum(single.finalY, precision)}`
+            : `${single.method}`,
           line: { color: '#14b8a6', width: 2.5 },
-          marker: { color: '#2dd4bf', size: 6 }
+          marker: {
+            color: isAdaptive ? '#10b981' : '#2dd4bf',
+            size: isAdaptive ? 7 : 6,
+            symbol: isAdaptive ? 'diamond' : 'circle'
+          }
         }
       ];
     }
   }, [result, paramXf, precision]);
+
+  // Gráfico de Variación del Paso Adaptativo h(t)
+  const adaptiveStepPlot = useMemo(() => {
+    if (!result || !result.isAdaptive) return null;
+    const traj = result.single.trajectory;
+    return [
+      {
+        x: traj.map((p) => p.t),
+        y: traj.map((p) => p.h),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Tamaño de paso h(t)',
+        line: { color: '#6366f1', width: 2 },
+        marker: { color: '#818cf8', size: 5 }
+      }
+    ];
+  }, [result]);
 
   // Gráficos Plotly para Sistemas de EDOs / 2do Orden
   const systemPlots = useMemo(() => {
@@ -322,6 +354,18 @@ export default function OdeModule({ precision = 6 }) {
           data: combinedData,
           filename: 'edo_comparativa'
         };
+      } else if (result.isAdaptive) {
+        return {
+          columns: [
+            { key: 'i', label: 'Paso (i)' },
+            { key: 't', label: 't_i', render: (v) => formatNum(v, precision) },
+            { key: 'y', label: 'y(t_i)', render: (v) => formatNum(v, precision) },
+            { key: 'h', label: 'Paso h_i', render: (v) => formatNum(v, precision) },
+            { key: 'error', label: 'Error Local', render: (v) => (v !== null ? formatNum(v, precision) : '0') }
+          ],
+          data: result.single.trajectory,
+          filename: 'edo_rk45_adaptativo'
+        };
       } else {
         return {
           columns: [
@@ -383,12 +427,13 @@ export default function OdeModule({ precision = 6 }) {
 
       {/* Selector de Método para 1er Orden */}
       {problemType === 'single' && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-slate-900/60 rounded-xl border border-slate-800 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1 bg-slate-900/60 rounded-xl border border-slate-800 text-xs">
           {[
-            { id: 'all', label: 'Comparar Todos (3 en 1)' },
+            { id: 'all', label: 'Comparar Todos' },
+            { id: 'rk45', label: 'RK45 Adaptativo' },
             { id: 'rk4', label: 'Runge-Kutta 4°' },
-            { id: 'heun', label: 'Euler Modificado (Heun)' },
-            { id: 'euler', label: 'Euler Clásico' }
+            { id: 'heun', label: 'Heun' },
+            { id: 'euler', label: 'Euler' }
           ].map((m) => (
             <button
               key={m.id}
@@ -515,15 +560,44 @@ export default function OdeModule({ precision = 6 }) {
                 />
               </div>
 
-              <div>
-                <label
-                  htmlFor="ode-param-h"
-                  className="block text-xs font-semibold text-slate-300 mb-1"
-                >
-                  Paso (h &gt; 0)
-                </label>
-                <input
-                  id="ode-param-h"
+              {method === 'rk45' ? (
+                <div>
+                  <label
+                    htmlFor="ode-param-tol"
+                    className="block text-xs font-semibold text-emerald-300 mb-1"
+                  >
+                    Tolerancia local (|ε|)
+                  </label>
+                  <input
+                    id="ode-param-tol"
+                    type="number"
+                    step="any"
+                    value={odeTol}
+                    onChange={(e) => setOdeTol(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/70 rounded-xl text-emerald-200 text-sm font-mono focus:border-emerald-400 focus:outline-none"
+                    required
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label
+                    htmlFor="ode-param-h"
+                    className="block text-xs font-semibold text-slate-300 mb-1"
+                  >
+                    Paso (h &gt; 0)
+                  </label>
+                  <input
+                    id="ode-param-h"
+                    type="number"
+                    step="any"
+                    value={paramH}
+                    onChange={(e) => setParamH(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm font-mono focus:border-teal-400 focus:outline-none"
+                    required
+                  />
+                </div>
+              )}
+            </div>
                   type="number"
                   step="any"
                   value={paramH}
