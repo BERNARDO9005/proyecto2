@@ -344,12 +344,14 @@ export default function CalculusModule({ precision = 6 }) {
       {activeTab === 'integration' && (
         <div className="space-y-6">
           {/* Selector de Método de Integración */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 bg-slate-900/80 rounded-2xl border border-slate-700/60">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-1.5 bg-slate-900/80 rounded-2xl border border-slate-700/60">
             {[
               { id: 'trapezoidSimple', label: 'Trapecio Simple' },
-              { id: 'trapezoidComp', label: 'Trapecio Compuesto' },
-              { id: 'simpson13', label: 'Simpson 1/3 Compuesto' },
-              { id: 'simpson38', label: 'Simpson 3/8 Compuesto' }
+              { id: 'trapezoidComp', label: 'Trapecio Comp.' },
+              { id: 'simpson13', label: 'Simpson 1/3' },
+              { id: 'simpson38', label: 'Simpson 3/8' },
+              { id: 'gaussLegendre', label: 'Gauss-Legendre' },
+              { id: 'romberg', label: 'Romberg' }
             ].map((m) => (
               <button
                 key={m.id}
@@ -358,7 +360,7 @@ export default function CalculusModule({ precision = 6 }) {
                   setError(null);
                   setIntResult(null);
                 }}
-                className={`py-2 px-3 rounded-xl font-medium text-xs sm:text-sm transition-all text-center ${
+                className={`py-2 px-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all text-center ${
                   intMethod === m.id
                     ? 'bg-teal-500 text-slate-950 font-bold shadow-lg shadow-teal-500/25'
                     : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
@@ -450,7 +452,7 @@ export default function CalculusModule({ precision = 6 }) {
                 />
               </div>
 
-              {intMethod !== 'trapezoidSimple' && (
+              {intMethod !== 'trapezoidSimple' && intMethod !== 'gaussLegendre' && intMethod !== 'romberg' && (
                 <div>
                   <label htmlFor="integration-subintervals-n" className="block text-xs font-semibold text-slate-300 mb-1">
                     Subintervalos (n)
@@ -466,6 +468,58 @@ export default function CalculusModule({ precision = 6 }) {
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm font-mono focus:border-teal-400 focus:outline-none"
                     required
                   />
+                </div>
+              )}
+
+              {intMethod === 'gaussLegendre' && (
+                <div>
+                  <label htmlFor="gauss-points-select" className="block text-xs font-semibold text-teal-300 mb-1">
+                    Puntos de Gauss (n = 2 a 6)
+                  </label>
+                  <select
+                    id="gauss-points-select"
+                    value={gaussPoints}
+                    onChange={(e) => setGaussPoints(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-teal-500/70 rounded-xl text-teal-200 text-sm font-mono focus:border-teal-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="2">2 Puntos (Exacto hasta grado 3)</option>
+                    <option value="3">3 Puntos (Exacto hasta grado 5)</option>
+                    <option value="4">4 Puntos (Exacto hasta grado 7)</option>
+                    <option value="5">5 Puntos (Exacto hasta grado 9)</option>
+                    <option value="6">6 Puntos (Exacto hasta grado 11)</option>
+                  </select>
+                </div>
+              )}
+
+              {intMethod === 'romberg' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="romberg-tol-input" className="block text-xs font-semibold text-teal-300 mb-1 truncate" title="Tolerancia |ε|">
+                      Tolerancia |ε|
+                    </label>
+                    <input
+                      id="romberg-tol-input"
+                      type="number"
+                      step="any"
+                      value={rombergTol}
+                      onChange={(e) => setRombergTol(e.target.value)}
+                      className="w-full px-2.5 py-2 bg-slate-900 border border-teal-500/70 rounded-xl text-teal-200 text-xs font-mono focus:border-teal-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="romberg-levels-input" className="block text-xs font-semibold text-slate-300 mb-1 truncate" title="Nivel Máx. (2-10)">
+                      Nivel Máx.
+                    </label>
+                    <input
+                      id="romberg-levels-input"
+                      type="number"
+                      min="2"
+                      max="10"
+                      value={rombergMaxLevel}
+                      onChange={(e) => setRombergMaxLevel(e.target.value)}
+                      className="w-full px-2.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs font-mono focus:border-teal-400 focus:outline-none"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -516,15 +570,28 @@ export default function CalculusModule({ precision = 6 }) {
                       I ≈ {formatNum(intResult.result, precision)}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      En intervalo [{paramA}, {paramB}] con n = {intResult.n} (paso h ={' '}
-                      {formatNum(intResult.h, 4)})
+                      {intMethod === 'romberg'
+                        ? `Intervalo [${paramA}, ${paramB}] • ${intResult.levels} niveles calculados • ${intResult.numEvaluations} evaluaciones de f(x)`
+                        : intMethod === 'gaussLegendre'
+                        ? `Intervalo [${paramA}, ${paramB}] • ${intResult.n} puntos de Gauss • Exacto hasta grado ${2 * intResult.n - 1}`
+                        : `En intervalo [${paramA}, ${paramB}] con n = ${intResult.n} (paso h = ${formatNum(intResult.h, 4)})`}
                     </div>
                   </div>
 
                   <div className="px-4 py-2.5 bg-slate-900/70 rounded-xl border border-slate-700/60 text-right">
-                    <div className="text-xs text-slate-400 font-medium">Error Teórico Estimado</div>
+                    <div className="text-xs text-slate-400 font-medium">
+                      {intMethod === 'romberg'
+                        ? 'Error Estimado |ΔR|'
+                        : intMethod === 'gaussLegendre'
+                        ? 'Precisión de Orden'
+                        : 'Error Teórico Estimado'}
+                    </div>
                     <div className="text-sm font-mono text-amber-300 font-bold">
-                      |E_t| ≈ {formatNum(intResult.estimatedError, precision)}
+                      {intMethod === 'romberg'
+                        ? `|E| ≈ ${formatNum(intResult.estimatedError, precision)}`
+                        : intMethod === 'gaussLegendre'
+                        ? `Grado ≤ ${2 * intResult.n - 1}`
+                        : `|E_t| ≈ ${formatNum(intResult.estimatedError, precision)}`}
                     </div>
                   </div>
                 </div>
@@ -540,21 +607,97 @@ export default function CalculusModule({ precision = 6 }) {
                   data={intPlotData}
                   layout={{
                     title: {
-                      text: `Área bajo la curva con ${intResult.n} segmentos`,
+                      text:
+                        intMethod === 'romberg'
+                          ? `Área bajo la curva con Romberg (${intResult.levels} niveles)`
+                          : intMethod === 'gaussLegendre'
+                          ? `Área bajo la curva con Cuadratura de Gauss (${intResult.n} puntos)`
+                          : `Área bajo la curva con ${intResult.n} segmentos`,
                       font: { color: '#e2e8f0', size: 14 }
                     }
                   }}
                 />
               </div>
 
-              {/* Tabla de Nodos */}
-              <IterationTable
-                title="Valores de los Nodos f(x_i)"
-                columns={intTableColumns}
-                data={intResult.points}
-                precision={precision}
-                filename="nodos_integracion"
-              />
+              {/* Tableau de Romberg si aplica */}
+              {intMethod === 'romberg' && intResult.table && (
+                <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/70 shadow-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                      <Table className="w-4 h-4 text-teal-400" />
+                      <span>Tabla Triangular de Romberg (Extrapolación de Richardson):</span>
+                    </h4>
+                    <span className="text-xs text-slate-400 font-mono">
+                      {intResult.converged ? '✓ Convergencia alcanzada' : '⚠️ Límite de niveles alcanzado'}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-700 text-teal-400">
+                          <th className="py-2 px-3">k (Nivel)</th>
+                          <th className="py-2 px-3">Subintervalos (2^k)</th>
+                          {intResult.table[intResult.table.length - 1].map((_, j) => (
+                            <th key={j} className="py-2 px-3">
+                              R[k, {j}] {j === 0 ? '(O(h²))' : `(O(h^{${2 * (j + 1)}}))`}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {intResult.table.map((row, k) => (
+                          <tr key={k} className="hover:bg-slate-900/50">
+                            <td className="py-2 px-3 text-slate-400 font-bold">{k}</td>
+                            <td className="py-2 px-3 text-slate-400">{Math.pow(2, k)}</td>
+                            {row.map((val, j) => {
+                              const isFinal = k === intResult.table.length - 1 && j === row.length - 1;
+                              return (
+                                <td
+                                  key={j}
+                                  className={`py-2 px-3 ${
+                                    isFinal
+                                      ? 'text-emerald-300 font-bold bg-emerald-950/40 rounded'
+                                      : 'text-slate-200'
+                                  }`}
+                                >
+                                  {formatNum(val, precision)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabla de Nodos para Gauss-Legendre o Métodos Clásicos */}
+              {intResult.points && intResult.points.length > 0 && (
+                <IterationTable
+                  title={
+                    intMethod === 'gaussLegendre'
+                      ? `Nodos y Pesos de Gauss-Legendre (${intResult.n} puntos)`
+                      : 'Valores de los Nodos f(x_i)'
+                  }
+                  columns={
+                    intMethod === 'gaussLegendre'
+                      ? [
+                          { key: 'i', label: 'i' },
+                          { key: 't', label: 'Raíz Legendre (t_i)', render: (v) => formatNum(v, 6) },
+                          { key: 'w', label: 'Peso (w_i)', render: (v) => formatNum(v, 6) },
+                          { key: 'x', label: 'Punto Mapeado (x_i)', render: (v) => formatNum(v, precision) },
+                          { key: 'fx', label: 'f(x_i)', render: (v) => formatNum(v, precision) },
+                          { key: 'term', label: 'Término Ponderado', render: (v) => formatNum(v, precision) }
+                        ]
+                      : intTableColumns
+                  }
+                  data={intResult.points}
+                  precision={precision}
+                  filename={intMethod === 'gaussLegendre' ? 'gauss_legendre_nodos' : 'nodos_integracion'}
+                />
+              )}
             </div>
           )}
         </div>
