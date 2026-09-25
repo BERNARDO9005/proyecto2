@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { Play, Sparkles, AlertCircle, CheckCircle, Info, Sigma, Activity } from 'lucide-react';
+import { Play, Sparkles, AlertCircle, CheckCircle, Info, Sigma, Activity, Table } from 'lucide-react';
 import { compileFunction1D, formatNum } from '../engines/mathParser';
 import {
   trapezoidalSimple,
   trapezoidalComposite,
   simpson13Composite,
   simpson38Composite,
-  computeFiniteDifferences
+  computeFiniteDifferences,
+  gaussLegendre,
+  rombergIntegration
 } from '../engines/calculusEngine';
 import LatexRenderer from '../components/LatexRenderer';
 import InteractivePlot from '../components/InteractivePlot';
@@ -22,6 +24,9 @@ export default function CalculusModule({ precision = 6 }) {
   const [paramA, setParamA] = useState('0');
   const [paramB, setParamB] = useState('1');
   const [paramN, setParamN] = useState('4');
+  const [gaussPoints, setGaussPoints] = useState('3');
+  const [rombergTol, setRombergTol] = useState('0.00000001');
+  const [rombergMaxLevel, setRombergMaxLevel] = useState('6');
 
   // Estado para Diferenciación
   const [diffExpr, setDiffExpr] = useState('x^3');
@@ -88,6 +93,16 @@ export default function CalculusModule({ precision = 6 }) {
           res = simpson13Composite(intExpr, a, b, n);
         } else if (intMethod === 'simpson38') {
           res = simpson38Composite(intExpr, a, b, n);
+        } else if (intMethod === 'gaussLegendre') {
+          res = gaussLegendre(intExpr, a, b, parseInt(gaussPoints, 10) || 3);
+        } else if (intMethod === 'romberg') {
+          res = rombergIntegration(
+            intExpr,
+            a,
+            b,
+            parseFloat(rombergTol) || 1e-8,
+            parseInt(rombergMaxLevel, 10) || 6
+          );
         }
 
         setIntResult(res);
@@ -155,10 +170,30 @@ export default function CalculusModule({ precision = 6 }) {
       }
 
       // Área sombreada segmentada por los nodos
-      const areaX = [a, ...intResult.points.map((p) => p.x), b];
-      const areaY = [0, ...intResult.points.map((p) => p.fx), 0];
+      let areaX = [];
+      let areaY = [];
+      if (intResult.points && intResult.points.length > 0) {
+        areaX = [a, ...intResult.points.map((p) => p.x), b];
+        areaY = [0, ...intResult.points.map((p) => p.fx), 0];
+      } else {
+        const sampleN = 50;
+        const subH = (b - a) / sampleN;
+        const ptsX = [];
+        const ptsY = [];
+        for (let i = 0; i <= sampleN; i++) {
+          const x = a + i * subH;
+          ptsX.push(x);
+          try {
+            ptsY.push(evaluate(x));
+          } catch {
+            ptsY.push(0);
+          }
+        }
+        areaX = [a, ...ptsX, b];
+        areaY = [0, ...ptsY, 0];
+      }
 
-      return [
+      const traces = [
         {
           x: areaX,
           y: areaY,
@@ -176,21 +211,26 @@ export default function CalculusModule({ precision = 6 }) {
           mode: 'lines',
           name: 'f(x)',
           line: { color: '#38bdf8', width: 2.5 }
-        },
-        {
+        }
+      ];
+
+      if (intResult.points && intResult.points.length > 0) {
+        traces.push({
           x: intResult.points.map((p) => p.x),
           y: intResult.points.map((p) => p.fx),
           type: 'scatter',
           mode: 'markers+lines',
-          name: 'Nodos de Mallado',
-          marker: { color: '#f59e0b', size: 6 },
+          name: intMethod === 'gaussLegendre' ? 'Puntos de Gauss' : 'Nodos de Mallado',
+          marker: { color: '#f59e0b', size: intMethod === 'gaussLegendre' ? 9 : 6 },
           line: { color: '#f59e0b', width: 1, dash: 'dot' }
-        }
-      ];
+        });
+      }
+
+      return traces;
     } catch {
       return [];
     }
-  }, [intResult, intExpr, paramA, paramB]);
+  }, [intResult, intExpr, paramA, paramB, intMethod]);
 
   // Gráfico para Diferenciación
   const diffPlotData = useMemo(() => {
