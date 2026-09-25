@@ -2,7 +2,12 @@ import {
   gaussianElimination,
   gaussJordan,
   jacobi,
-  gaussSeidel
+  gaussSeidel,
+  solveLU,
+  solveCholesky,
+  powerMethod,
+  inversePowerMethod,
+  qrAlgorithm
 } from '../engines/linearSystemEngine';
 
 let workerInstance = null;
@@ -74,16 +79,17 @@ export function terminateWorker() {
 }
 
 /**
- * Resuelve un sistema de ecuaciones lineales de manera asíncrona mediante Web Worker
+ * Resuelve un sistema o cálculo matricial de manera asíncrona mediante Web Worker
  * con fallback transparente al hilo principal.
  *
  * @param {Object} params
- * @param {string} params.method - 'gauss' | 'jordan' | 'jacobi' | 'seidel'
+ * @param {string} params.method - 'gauss' | 'jordan' | 'doolittle' | 'crout' | 'cholesky' | 'jacobi' | 'seidel' | 'power' | 'inverse_power' | 'qr_eigen'
  * @param {number[][]} params.matrixA
- * @param {number[]} params.vectorB
+ * @param {number[]} [params.vectorB]
  * @param {number[]} [params.vectorX0]
  * @param {number|string} [params.tolerance]
  * @param {number|string} [params.maxIter]
+ * @param {number|string} [params.shift]
  * @returns {Promise<any>}
  */
 export function solveLinearSystemAsync({
@@ -92,7 +98,8 @@ export function solveLinearSystemAsync({
   vectorB,
   vectorX0,
   tolerance = 1e-6,
-  maxIter = 100
+  maxIter = 100,
+  shift = 0
 }) {
   const worker = getWorker();
 
@@ -103,17 +110,29 @@ export function solveLinearSystemAsync({
         const t0 = performance.now();
         try {
           const tol = parseFloat(tolerance) || 1e-6;
-          const maxI = Math.min(100, Math.max(1, parseInt(maxIter, 10) || 100));
+          const maxI = Math.min(200, Math.max(1, parseInt(maxIter, 10) || 100));
 
           let res;
           if (method === 'gauss') {
             res = gaussianElimination(matrixA, vectorB);
           } else if (method === 'jordan') {
             res = gaussJordan(matrixA, vectorB);
+          } else if (method === 'doolittle') {
+            res = solveLU(matrixA, vectorB, 'doolittle');
+          } else if (method === 'crout') {
+            res = solveLU(matrixA, vectorB, 'crout');
+          } else if (method === 'cholesky') {
+            res = solveCholesky(matrixA, vectorB);
           } else if (method === 'jacobi') {
             res = jacobi(matrixA, vectorB, vectorX0, tol, maxI);
           } else if (method === 'seidel') {
             res = gaussSeidel(matrixA, vectorB, vectorX0, tol, maxI);
+          } else if (method === 'power') {
+            res = powerMethod(matrixA, vectorX0, tol, maxI);
+          } else if (method === 'inverse_power') {
+            res = inversePowerMethod(matrixA, parseFloat(shift) || 0, vectorX0, tol, maxI);
+          } else if (method === 'qr_eigen') {
+            res = qrAlgorithm(matrixA, tol, maxI);
           } else {
             throw new Error(`Método no reconocido: ${method}`);
           }
@@ -143,7 +162,8 @@ export function solveLinearSystemAsync({
       vectorB,
       vectorX0,
       tolerance,
-      maxIter
+      maxIter,
+      shift
     });
   });
 }
