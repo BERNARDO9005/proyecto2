@@ -352,6 +352,26 @@ export default function MatrixInput({
             <span>Tridiagonal</span>
           </button>
 
+          {/* Cholesky Preset */}
+          <button
+            type="button"
+            onClick={() => loadPreset('cholesky3x3')}
+            title="Cargar matriz simétrica y definida positiva (para Cholesky)"
+            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition-colors"
+          >
+            <span>Simétrica Def. Pos.</span>
+          </button>
+
+          {/* Autovalores Preset */}
+          <button
+            type="button"
+            onClick={() => loadPreset('symmetricEigen3x3')}
+            title="Cargar matriz para cálculo de autovalores"
+            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition-colors"
+          >
+            <span>Autovalores 3×3</span>
+          </button>
+
           {/* Importar CSV / Texto */}
           <button
             type="button"
