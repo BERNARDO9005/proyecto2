@@ -598,15 +598,6 @@ export default function OdeModule({ precision = 6 }) {
                 </div>
               )}
             </div>
-                  type="number"
-                  step="any"
-                  value={paramH}
-                  onChange={(e) => setParamH(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm font-mono focus:border-teal-400 focus:outline-none"
-                  required
-                />
-              </div>
-            </div>
           </>
         )}
 

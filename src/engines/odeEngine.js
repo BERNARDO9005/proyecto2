@@ -547,6 +547,7 @@ export function rk45(expression, t0, y0, tf, options = {}) {
     tf,
     tol,
     finalY: trajectory[trajectory.length - 1].y,
+    numSteps: acceptedCount,
     totalSteps: stepCount,
     acceptedSteps: acceptedCount,
     rejectedSteps: rejectedCount,
