@@ -886,14 +886,33 @@ export default function OdeModule({ precision = 6 }) {
                       y({paramXf}) ≈ {formatNum(result.single.finalY, precision)}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      Condición inicial: y({paramX0}) = {paramY0} | Paso h = {paramH}
+                      Condición inicial: y({paramX0}) = {paramY0} | {result.isAdaptive ? `Tolerancia |ε| = ${odeTol}` : `Paso h = ${paramH}`}
                     </div>
                   </div>
-                  <div className="px-4 py-2 bg-slate-900/70 rounded-xl border border-slate-700/60 text-right">
-                    <div className="text-xs text-slate-400">Número de pasos</div>
-                    <div className="text-lg font-bold font-mono text-teal-300">
-                      {result.single.numSteps}
-                    </div>
+                  <div className="flex items-center gap-3">
+                    {result.isAdaptive ? (
+                      <>
+                        <div className="px-3 py-2 bg-slate-900/70 rounded-xl border border-slate-700/60 text-right">
+                          <div className="text-xs text-slate-400">Pasos aceptados</div>
+                          <div className="text-lg font-bold font-mono text-emerald-300">
+                            {result.single.acceptedSteps}
+                          </div>
+                        </div>
+                        <div className="px-3 py-2 bg-slate-900/70 rounded-xl border border-slate-700/60 text-right">
+                          <div className="text-xs text-slate-400">Rechazados</div>
+                          <div className="text-lg font-bold font-mono text-amber-400">
+                            {result.single.rejectedSteps}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="px-4 py-2 bg-slate-900/70 rounded-xl border border-slate-700/60 text-right">
+                        <div className="text-xs text-slate-400">Número de pasos</div>
+                        <div className="text-lg font-bold font-mono text-teal-300">
+                          {result.single.numSteps}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -918,6 +937,30 @@ export default function OdeModule({ precision = 6 }) {
                   }}
                 />
               </div>
+
+              {/* Gráfico Adaptativo: Tamaño de paso h(t) */}
+              {result.isAdaptive && adaptiveStepPlot && (
+                <div className="bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-indigo-500/40 shadow-lg">
+                  <h4 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-indigo-400" />
+                    <span>Variación Dinámica del Tamaño de Paso h(t):</span>
+                    <span className="text-xs font-mono text-indigo-400">
+                      Adaptativo RK45 (Tolerancia: {odeTol})
+                    </span>
+                  </h4>
+                  <InteractivePlot
+                    data={adaptiveStepPlot}
+                    layout={{
+                      title: {
+                        text: 'Paso h en función de t (Control local del error)',
+                        font: { color: '#e2e8f0', size: 14 }
+                      },
+                      xaxis: { title: { text: 't' } },
+                      yaxis: { title: { text: 'h (Tamaño de paso)' } }
+                    }}
+                  />
+                </div>
+              )}
             </>
           )}
 
