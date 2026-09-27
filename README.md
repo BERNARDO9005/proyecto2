@@ -17,46 +17,61 @@ Desarrollada con **React 18**, **Vite**, **Tailwind CSS (Dark Mode #0f172a)**, c
   - **No convergencia**: Advertencia explícita y reporte de la mejor aproximación al alcanzar el tope de 100 iteraciones.
 - **Visualización**: Curva $f(x)$, eje $y=0$ y trayectoria de puntos de iteración convergentes.
 
-### 2. Módulo 2: Sistemas de Ecuaciones Lineales (Matrices)
-- **Métodos**:
-  - Directos: Eliminación Gaussiana con **pivoteo parcial obligatorio** y Gauss-Jordan.
-  - Iterativos: Jacobi y Gauss-Seidel.
-- **Dimensiones**: Matrices dinámicas desde $2 \times 2$ hasta **$50 \times 50$** procesadas en segundo plano mediante **Web Worker**.
-- **Herramientas**: Generador de matrices aleatorias, matrices diagonalmente dominantes, sistemas tridiagonales e importador de matrices desde texto o CSV.
+### 2. Módulo 2: Sistemas de Ecuaciones Lineales y Álgebra Matricial
+- **Métodos Directos**:
+  - Eliminación Gaussiana con **pivoteo parcial obligatorio** y sustitución hacia atrás.
+  - Gauss-Jordan con matriz diagonal unitaria.
+  - **Factorización LU**: Métodos de **Doolittle** ($L$ con diagonal unitaria) y **Crout** ($U$ con diagonal unitaria) con resolución de dos sistemas triangulares ($Ly = b$, $Ux = y$).
+  - **Descomposición de Cholesky**: Factorización $A = L L^T$ para matrices simétricas y definidas positivas.
+- **Métodos Iterativos**:
+  - Jacobi y Gauss-Seidel con control de convergencia espectral y tolerancia $|\varepsilon_a|$.
+- **Autovalores y Autovectores**:
+  - **Método de las Potencias**: Cálculo del autovalor y autovector dominante ($|\lambda_1|$) con normalización por norma infinita.
+  - **Método de las Potencias Inversas**: Autovalores más cercanos a un desplazamiento $s$ ($\lambda \approx s$).
+  - **Algoritmo QR**: Espectro completo de autovalores mediante descomposiciones ortogonales iterativas ($A_k = Q_k R_k \implies A_{k+1} = R_k Q_k$).
+- **Dimensiones & Rendimiento**: Matrices dinámicas desde $2 \times 2$ hasta **$50 \times 50$** procesadas en segundo plano mediante **Web Worker** dedicado (`linearWorker.js`), garantizando 60 FPS continuos en la interfaz.
+- **Herramientas**: Generador de matrices aleatorias, matrices diagonalmente dominantes, sistemas tridiagonales, simétricas definidas positivas e importador de matrices desde texto o CSV.
 - **Casos límite controlados**:
-  - **Matriz singular o mal condicionada**: Detección estricta si el pivote $|a_{kk}| < 10^{-12}$ tras el pivoteo parcial.
+  - **Matriz singular o mal condicionada**: Detección estricta si el pivote $|a_{kk}| < 10^{-12}$.
   - **Dominancia diagonal**: Verificación analítica en tiempo real para Jacobi/Gauss-Seidel con advertencia visual.
-  - **No bloqueo de interfaz (60 FPS)**: Ejecución aislada en Web Worker con badge de tiempo en milisegundos y botón para cancelar cómputo.
-- **Salidas**: Vector solución con copiado al portapapeles, matrices aumentadas $[A|b]$ paso a paso, historial de sustitución hacia atrás y tablas de convergencia.
+  - **Matrices no simétricas o no definidas positivas**: Validación estricta previa para Cholesky.
 
 ### 3. Módulo 3: Diferenciación e Integración Numérica
-- **Integración**:
+- **Integración Newton-Cotes**:
   - Regla del Trapecio (Simple y Compuesto).
-  - Simpson 1/3 Compuesto (**ajuste automático estricto a $n$ par** con notificación visible al usuario).
-  - Simpson 3/8 Compuesto (**ajuste automático a múltiplos de 3** con notificación al usuario).
-  - Estimación analítica/numérica del error de truncamiento.
-  - Gráfico de área segmentada bajo la curva.
+  - Simpson 1/3 Compuesto (**ajuste automático estricto a $n$ par** con notificación visible).
+  - Simpson 3/8 Compuesto (**ajuste automático a múltiplos de 3** con notificación).
+- **Integración Avanzada y Adaptativa**:
+  - **Cuadratura de Gauss-Legendre**: Integración de alto orden con 2 a 6 puntos de evaluación y pesos exactos tabulados, transformando $[a, b] \to [-1, 1]$.
+  - **Integración de Romberg**: Algoritmo de aceleración de convergencia mediante extrapolación de Richardson sobre la regla del trapecio, generando la tabla triangular completa $R(j, k)$ hasta satisfacer la tolerancia local.
 - **Diferenciación**:
   - Diferencias finitas hacia adelante, hacia atrás y centradas de 1er, 2do y 4to orden ($O(h)$, $O(h^2)$, $O(h^4)$).
   - Aproximación de segunda derivada $f''(x)$.
-- **Caso límite controlado**:
+- **Casos límite controlados**:
   - **Fuera de dominio**: Captura puntual si $f(x)$ queda indefinida (ej. $\ln(x)$ con $x \le 0$) indicando con precisión el subintervalo que falló sin romper la aplicación.
 
 ### 4. Módulo 4: Ecuaciones Diferenciales Ordinarias (EDO)
-- **Modos**:
-  - **1er Orden Individual y Comparativo**: Euler, Heun (Euler modificado) y Runge-Kutta 4° Orden (RK4) contrastados simultáneamente.
-  - **Sistemas de EDOs Acopladas (RK4 Vectorial)**: Solución de $\frac{dy_1}{dt} = f_1(t, y_1, y_2)$ y $\frac{dy_2}{dt} = f_2(t, y_1, y_2)$ (ej. Modelo Lotka-Volterra presa-depredador).
-  - **EDOs de 2° Orden**: Reducción canónica a sistema de 1er orden para resolver problemas mecánicos como osciladores armónicos amortiguados y péndulos no lineales $y'' = f(t, y, y')$.
-- **Visualización**: Series temporales simultáneas y gráfico 2D de **Retrato de Fases** (espacio de estados $y_2$ vs $y_1$ / velocidad vs posición).
-- **Casos límite controlados**: Validación estricta de $h > 0$, $t_f > t_0$ y protección contra desbordamiento o divergencia numérica.
+- **Modos de 1er Orden**:
+  - **Métodos de Paso Fijo**: Euler Clásico, Heun (Euler Modificado) y Runge-Kutta 4° Orden (RK4) contrastados individual o simultáneamente (3 en 1).
+  - **RK45 Adaptativo (Dormand-Prince DP54)**: Integrador con control automático del paso $h(t)$ según tolerancia al error local $|\varepsilon|$, reporte de pasos aceptados vs rechazados y gráfico dinámico del tamaño de paso $h(t)$.
+- **Sistemas de EDOs Acopladas (RK4 Vectorial)**: Solución de $\frac{dy_1}{dt} = f_1(t, y_1, y_2)$ y $\frac{dy_2}{dt} = f_2(t, y_1, y_2)$ (ej. Modelo Lotka-Volterra presa-depredador).
+- **EDOs de 2° Orden**: Reducción canónica a sistema de 1er orden para resolver problemas mecánicos como osciladores armónicos amortiguados y péndulos no lineales $y'' = f(t, y, y')$.
+- **Visualización**: Series temporales simultáneas, gráfico de paso adaptativo $h(t)$ y gráfico 2D de **Retrato de Fases** (espacio de estados $y_2$ vs $y_1$ / velocidad vs posición).
+- **Casos límite controlados**: Validación estricta de $h > 0$, $t_f > t_0$, control de divergencia numérica y límite de seguridad de pasos en RK45.
 
 ### 5. Módulo 5: Interpolación y Ajuste de Curvas
-- **Métodos**:
-  - **Polinomios de Lagrange**: Cálculo de polinomios base $L_i(x)$, suma ponderada y expansión a forma canónica $P(x) = a_n x^n + \dots + a_0$.
-  - **Diferencias Divididas de Newton**: Tabla piramidal completa de diferencias divididas, fórmula en forma de Newton y evaluación eficiente mediante esquema anidado de Horner.
+- **Interpolación Polinomial y Splines**:
+  - **Polinomios de Lagrange**: Polinomios base $L_i(x)$, suma ponderada y expansión a forma canónica $P(x) = a_n x^n + \dots + a_0$.
+  - **Diferencias Divididas de Newton**: Tabla piramidal completa de diferencias divididas, fórmula en forma de Newton y evaluación eficiente mediante Horner.
   - **Splines Cúbicos Naturales**: Ajuste suave de clase $C^2$ con segundas derivadas continuas resuelto mediante el algoritmo tridiagonal de Thomas ($S''(x_0) = S''(x_n) = 0$).
-- **Herramientas**: Editor interactivo de nodos $(x_i, y_i)$, importador CSV/texto, evaluador puntual en $x^*$, presets (fenómeno de Runge, termodinámica, cinemática) y gráfico interactivo con nodos destacados y curva continua.
-- **Caso límite controlado**: Detección estricta de abscisas duplicadas ($x_i = x_j$) antes del cálculo para evitar divisiones entre cero.
+- **Ajuste de Curvas (Regresión por Mínimos Cuadrados)**:
+  - **Regresión Lineal**: $y = a_1 x + a_0$ con sistema normal $2 \times 2$.
+  - **Regresión Polinomial**: Grado $m$ configurable con sistema de ecuaciones normales de Vandermonde.
+  - **Regresión Exponencial**: $y = a e^{bx}$ mediante linealización semilogarítmica ($\ln y = \ln a + bx$).
+  - **Regresión Potencial**: $y = a x^b$ mediante linealización log-log ($\ln y = \ln a + b \ln x$).
+  - **Métricas de Bondad de Ajuste**: Coeficiente de determinación $R^2$, correlación $r$, error estándar de la estimación ($S_{y/x}$) y suma de cuadrados residuales ($S_r$).
+- **Herramientas**: Editor interactivo de nodos $(x_i, y_i)$, importador CSV/texto, evaluador puntual en $x^*$, presets pedagógicos (Runge, cinética química, termodinámica, ley de enfriamiento) y gráfico interactivo con nodos destacados y curva continua.
+- **Caso límite controlado**: Detección de abscisas duplicadas ($x_i = x_j$), valores no positivos en regresiones logarítmicas y puntos insuficientes para el grado del polinomio.
 
 ---
 
