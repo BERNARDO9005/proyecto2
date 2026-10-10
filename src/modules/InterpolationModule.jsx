@@ -30,6 +30,7 @@ import LatexRenderer from '../components/LatexRenderer';
 import InteractivePlot from '../components/InteractivePlot';
 import IterationTable from '../components/IterationTable';
 import AlertBanner from '../components/AlertBanner';
+import ExportToolbar from '../components/ExportToolbar';
 
 export default function InterpolationModule({ precision = 6 }) {
   // Modo principal: 'interpolation' | 'regression'
@@ -359,7 +360,154 @@ export default function InterpolationModule({ precision = 6 }) {
     }
 
     return traces;
-  }, [result, points, evaluatedValue, evalX, precision, category]);
+  // Datos unificados para Exportación Académica (PDF/LaTeX) y Generador de Código
+  const exportData = useMemo(() => {
+    if (!result) return null;
+
+    const isReg = category === 'regression';
+    const methodNames = {
+      lagrange: 'Polinomio Interpolador de Lagrange',
+      newton: 'Polinomio de Newton (Diferencias Divididas)',
+      spline: 'Splines Cúbicos Naturales (C^2)',
+      linear: 'Regresión Lineal Simple (Mínimos Cuadrados)',
+      polynomial: `Regresión Polinomial (Grado ${polyDegree})`,
+      exponential: 'Regresión Exponencial y = a*e^(bx)',
+      power: 'Regresión Potencial y = a*x^b'
+    };
+
+    const methodFormulas = {
+      lagrange:
+        'P_n(x) = \\sum_{i=0}^n y_i L_i(x), \\quad L_i(x) = \\prod_{j \\neq i} \\frac{x - x_j}{x_i - x_j}',
+      newton:
+        'P_n(x) = f[x_0] + \\sum_{k=1}^n f[x_0,\\dots,x_k] \\prod_{j=0}^{k-1}(x - x_j)',
+      spline:
+        'S_i(x) = a_i + b_i(x - x_i) + c_i(x - x_i)^2 + d_i(x - x_i)^3, \\quad S\'\'(x_0)=S\'\'(x_n)=0',
+      linear:
+        'y = a_1 x + a_0, \\quad a_1 = \\frac{n\\sum x y - \\sum x \\sum y}{n\\sum x^2 - (\\sum x)^2}',
+      polynomial: '\\mathbf{X}^T \\mathbf{X} \\mathbf{a} = \\mathbf{X}^T \\mathbf{y}',
+      exponential: '\\ln(y) = \\ln(a) + b x',
+      power: '\\ln(y) = \\ln(a) + b \\ln(x)'
+    };
+
+    const mId = isReg ? regType : method;
+    const mName = isReg ? result.name : methodNames[method] || method;
+
+    const mathLatex = isReg
+      ? result.formulaLatex || 'y = f(x)'
+      : result.polynomialLatex
+      ? `P(x) = ${result.polynomialLatex}`
+      : 'P(x) \\text{ interpolador}';
+
+    const curve = [];
+    if (plotData && plotData[0] && plotData[0].x) {
+      for (let i = 0; i < plotData[0].x.length; i += 2) {
+        if (plotData[0].y[i] !== null) {
+          curve.push({ x: plotData[0].x[i], y: plotData[0].y[i] });
+        }
+      }
+    }
+    const markers = points.map((p) => ({ x: p.x, y: p.y }));
+
+    let tableColumns = [];
+    let tableData = [];
+    if (isReg && result.table) {
+      tableColumns = [
+        { key: 'i', label: 'i' },
+        { key: 'x', label: 'x_i' },
+        { key: 'y', label: 'y_i (Observado)' },
+        { key: 'y_pred', label: 'y_pred (Modelo)' },
+        { key: 'residual', label: 'Residuo e_i' }
+      ];
+      tableData = result.table.map((r, i) => ({
+        i: i + 1,
+        x: r.x,
+        y: r.y,
+        y_pred: formatNum(r.y_pred, precision),
+        residual: formatNum(r.residual, precision)
+      }));
+    } else {
+      tableColumns = [
+        { key: 'i', label: 'Nodo i' },
+        { key: 'x', label: 'x_i' },
+        { key: 'y', label: 'y_i = f(x_i)' }
+      ];
+      tableData = points.map((p, i) => ({
+        i,
+        x: p.x,
+        y: p.y
+      }));
+    }
+
+    const evalTarget = parseFloat(evalX);
+    const rootPoint =
+      !Number.isNaN(evalTarget) && evaluatedValue !== null
+        ? { x: evalTarget, y: evaluatedValue, label: `x*=${evalTarget}` }
+        : null;
+
+    return {
+      moduleId: 'interpolation',
+      moduleTitle: isReg ? 'Ajuste de Curvas & Regresión' : 'Interpolación Numérica & Splines',
+      category,
+      methodId: mId,
+      methodName: mName,
+      problemStatement: isReg
+        ? `Ajuste óptimo del modelo por el método de mínimos cuadrados para ${points.length} puntos observados.`
+        : `Construcción del modelo interpolador exacto que interseca los ${points.length} nodos especificados.`,
+      mathFormulationLatex: mathLatex,
+      methodFormulaLatex: methodFormulas[mId] || '',
+      parameters: [
+        { label: 'Total de Puntos', value: `${points.length} nodos` },
+        { label: 'Método / Modelo', value: mName },
+        ...(isReg
+          ? [{ label: 'Coeficiente R²', value: result.r2 ? formatNum(result.r2, 4) : '---' }]
+          : []),
+        ...(evalX ? [{ label: 'Punto Evaluado x*', value: evalX }] : []),
+        { label: 'Precisión Decimal', value: `${precision} decimales` }
+      ],
+      rawInputs: {
+        points,
+        evalX: parseFloat(evalX) || 0,
+        polyDegree: parseInt(polyDegree, 10) || 2
+      },
+      resultSummary: {
+        converged: true,
+        mainResultLabel: evaluatedValue !== null ? `Evaluación en x* = ${evalX}` : 'Modelo Calculado',
+        mainResultValue:
+          evaluatedValue !== null
+            ? `f(${evalX}) ≈ ${formatNum(evaluatedValue, precision)}`
+            : result.equationText || 'Modelo listo',
+        iterationsCount: points.length,
+        finalError: result.r2
+          ? `R² = ${formatNum(result.r2, 4)}`
+          : result.sr
+          ? `Sr = ${formatNum(result.sr, 4)}`
+          : '---',
+        message: isReg
+          ? `Bondad de ajuste R² = ${formatNum(result.r2, 4)}.`
+          : 'Polinomio interpolador calculado con éxito.'
+      },
+      tableColumns,
+      tableData,
+      plotPoints: {
+        curve,
+        markers,
+        root: rootPoint,
+        xLabel: 'x',
+        yLabel: 'y'
+      }
+    };
+  }, [
+    result,
+    category,
+    method,
+    regType,
+    polyDegree,
+    points,
+    evalX,
+    evaluatedValue,
+    precision,
+    plotData
+  ]);
 
   return (
     <div className="space-y-6">
