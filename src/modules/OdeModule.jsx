@@ -397,6 +397,156 @@ export default function OdeModule({ precision = 6 }) {
     }
   }, [result]);
 
+  // Datos unificados para Exportación Académica (PDF/LaTeX) y Generador de Código
+  const exportData = useMemo(() => {
+    if (!result) return null;
+
+    const methodNames = {
+      euler: 'Método de Euler',
+      heun: 'Método de Heun (Euler Mejorado)',
+      rk4: 'Método de Runge-Kutta 4° Orden (RK4)',
+      rk45: 'Método Runge-Kutta-Fehlberg 4(5) Adaptativo',
+      all: 'Análisis Comparativo (Euler vs Heun vs RK4)'
+    };
+
+    const methodFormulas = {
+      euler: 'y_{n+1} = y_n + h f(x_n, y_n)',
+      heun: 'y_{n+1} = y_n + \\frac{h}{2}\\left[ f(x_n, y_n) + f(x_n + h, y_n + h f(x_n, y_n)) \\right]',
+      rk4: 'y_{n+1} = y_n + \\frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)',
+      rk45: '\\hat{y}_{n+1} = y_n + h \\sum_{i=1}^6 c_i k_i, \\quad |TE| = |y_{n+1} - \\hat{y}_{n+1}|',
+      all: 'y_{n+1}^{(\\text{RK4})} = y_n + \\frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)'
+    };
+
+    let title = 'Ecuaciones Diferenciales Ordinarias (EDO)';
+    let mathLatex = '';
+    let mName = '';
+    let curve = [];
+    let params = [];
+    let mainResultValue = '';
+
+    if (result.type === 'single') {
+      mName = methodNames[method] || 'Runge-Kutta 4';
+      mathLatex = `\\frac{dy}{dx} = ${expression}, \\quad y(${paramX0}) = ${paramY0}`;
+      params = [
+        { label: 'EDO dy/dx', value: expression },
+        { label: 'Condición Inicial y(x0)', value: `y(${paramX0}) = ${paramY0}` },
+        { label: 'Extremo Final xf', value: paramXf },
+        ...(method === 'rk45'
+          ? [{ label: 'Tolerancia Error', value: odeTol }]
+          : [{ label: 'Tamaño de Paso h', value: paramH }]),
+        { label: 'Precisión Decimal', value: `${precision} decimales` }
+      ];
+
+      if (result.single && result.single.trajectory) {
+        curve = result.single.trajectory.map((p) => ({ x: p.x ?? p.t, y: p.y }));
+        const last = result.single.trajectory[result.single.trajectory.length - 1];
+        mainResultValue = `y(${paramXf}) ≈ ${formatNum(last?.y, precision)}`;
+      } else if (result.comparative) {
+        const rk4Traj = result.comparative.rk4.trajectory;
+        curve = rk4Traj.map((p) => ({ x: p.x, y: p.y }));
+        const last = rk4Traj[rk4Traj.length - 1];
+        mainResultValue = `y(${paramXf}) ≈ ${formatNum(last?.y, precision)} (RK4)`;
+      }
+    } else if (result.type === 'system') {
+      mName = 'Sistema Acoplado de 2 EDOs (RK4)';
+      mathLatex = `\\begin{cases} \\frac{dy_1}{dt} = ${sysF1} \\\\ \\frac{dy_2}{dt} = ${sysF2} \\end{cases}, \\quad y_1(${sysT0})=${sysY1_0}, \\, y_2(${sysT0})=${sysY2_0}`;
+      params = [
+        { label: 'dy1/dt', value: sysF1 },
+        { label: 'dy2/dt', value: sysF2 },
+        { label: 'y1(t0), y2(t0)', value: `${sysY1_0}, ${sysY2_0}` },
+        { label: 'Tiempo Final tf', value: sysTf },
+        { label: 'Paso h', value: sysH }
+      ];
+      if (result.system && result.system.trajectory) {
+        curve = result.system.trajectory.map((p) => ({ x: p.t, y: p.y1 }));
+        const last = result.system.trajectory[result.system.trajectory.length - 1];
+        mainResultValue = `y₁(${sysTf}) ≈ ${formatNum(last?.y1, precision)}, y₂(${sysTf}) ≈ ${formatNum(last?.y2, precision)}`;
+      }
+    } else {
+      mName = "EDO de 2° Orden y'' = f(t, y, y') (RK4)";
+      mathLatex = `y'' = ${secondExpr}, \\quad y(${secT0})=${secY0}, \\, y'(${secT0})=${secV0}`;
+      params = [
+        { label: "y'' = f(t, y, y')", value: secondExpr },
+        { label: 'y(t0), y\'(t0)', value: `${secY0}, ${secV0}` },
+        { label: 'Tiempo Final tf', value: secTf },
+        { label: 'Paso h', value: secH }
+      ];
+      if (result.secondOrder && result.secondOrder.trajectory) {
+        curve = result.secondOrder.trajectory.map((p) => ({ x: p.t, y: p.y1 }));
+        const last = result.secondOrder.trajectory[result.secondOrder.trajectory.length - 1];
+        mainResultValue = `y(${secTf}) ≈ ${formatNum(last?.y1, precision)}`;
+      }
+    }
+
+    const sampledMarkers = curve.filter(
+      (_, i) => i % Math.max(1, Math.floor(curve.length / 25)) === 0
+    );
+
+    return {
+      moduleId: 'ode',
+      moduleTitle: title,
+      methodId: method,
+      methodName: mName,
+      problemStatement: `Solución numérica de problema de valor inicial (PVI) mediante integración temporal.`,
+      mathFormulationLatex: mathLatex,
+      methodFormulaLatex: methodFormulas[method] || methodFormulas['rk4'],
+      parameters: params,
+      rawInputs: {
+        expression:
+          problemType === 'single'
+            ? expression
+            : problemType === 'system'
+            ? `${sysF1}; ${sysF2}`
+            : secondExpr,
+        paramX0,
+        paramY0,
+        paramXf,
+        paramH
+      },
+      resultSummary: {
+        converged: true,
+        mainResultLabel: 'Solución en Extremo Final',
+        mainResultValue,
+        iterationsCount: tableInfo.data.length,
+        finalError: `Paso h = ${paramH}`,
+        message: 'Integración numérica de la trayectoria completada exitosamente.'
+      },
+      tableColumns: tableInfo.columns,
+      tableData: tableInfo.data,
+      plotPoints: {
+        curve,
+        markers: sampledMarkers,
+        xLabel: problemType === 'single' ? 'x' : 't',
+        yLabel: 'y(t)'
+      }
+    };
+  }, [
+    result,
+    problemType,
+    method,
+    expression,
+    paramX0,
+    paramY0,
+    paramXf,
+    paramH,
+    odeTol,
+    sysF1,
+    sysF2,
+    sysT0,
+    sysY1_0,
+    sysY2_0,
+    sysTf,
+    sysH,
+    secondExpr,
+    secT0,
+    secY0,
+    secV0,
+    secTf,
+    secH,
+    precision,
+    tableInfo
+  ]);
+
   return (
     <div className="space-y-6">
       {/* Selector Principal de Categoría de EDO */}
@@ -840,6 +990,9 @@ export default function OdeModule({ precision = 6 }) {
       {/* Resultados */}
       {result && (
         <div className="space-y-6">
+          {/* Barra de Exportación y Utilidad Académica */}
+          <ExportToolbar exportData={exportData} />
+
           {/* Tarjetas de Solución para 1er Orden */}
           {result.type === 'single' && (
             <>
