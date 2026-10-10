@@ -22,6 +22,7 @@ import MatrixInput from '../components/MatrixInput';
 import IterationTable from '../components/IterationTable';
 import AlertBanner from '../components/AlertBanner';
 import LatexRenderer from '../components/LatexRenderer';
+import ExportToolbar from '../components/ExportToolbar';
 
 export default function LinearModule({ precision = 6 }) {
   // Categoría principal: 'systems' (Ax = b) | 'eigen' (Av = λv)

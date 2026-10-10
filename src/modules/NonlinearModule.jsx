@@ -234,6 +234,8 @@ export default function NonlinearModule({ precision = 6 }) {
         }
       ];
     }
+  }, [method]);
+
   // Datos unificados para Exportación Académica (PDF/LaTeX) y Generación de Código
   const exportData = useMemo(() => {
     if (!result) return null;
@@ -562,6 +564,9 @@ export default function NonlinearModule({ precision = 6 }) {
       {/* Resumen del Resultado */}
       {result && (
         <div className="space-y-6">
+          {/* Barra de Exportación y Utilidad Académica */}
+          <ExportToolbar exportData={exportData} />
+
           <div
             className={`p-5 rounded-2xl border backdrop-blur-sm ${
               result.converged
