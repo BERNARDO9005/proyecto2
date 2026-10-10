@@ -219,6 +219,178 @@ export default function LinearModule({ precision = 6 }) {
     return `\\begin{pmatrix} \n ${rowsTex} \n \\end{pmatrix}`;
   };
 
+  // Datos unificados para Exportación Académica (PDF/LaTeX) y Generador de Código
+  const exportData = useMemo(() => {
+    if (!result) return null;
+
+    const methodNames = {
+      gauss: 'Eliminación Gaussiana con Pivoteo Parcial',
+      jordan: 'Eliminación Gauss-Jordan',
+      doolittle: 'Factorización LU (Doolittle)',
+      crout: 'Factorización LU (Crout)',
+      cholesky: 'Descomposición de Cholesky (LL^T)',
+      jacobi: 'Método Iterativo de Jacobi',
+      seidel: 'Método Iterativo de Gauss-Seidel',
+      power: 'Método de la Potencia (Autovalor Dominante)',
+      inverse_power: 'Método de la Potencia Inversa (con Shift)',
+      qr_eigen: 'Algoritmo QR de Autovalores'
+    };
+
+    const methodFormulas = {
+      gauss: 'm_{ik} = \\frac{a_{ik}}{a_{kk}}, \\quad R_i \\leftarrow R_i - m_{ik}R_k',
+      jordan: 'R_i \\leftarrow R_i - \\frac{a_{ik}}{a_{kk}} R_k, \\quad \\forall i \\neq k',
+      doolittle: '\\mathbf{A} = \\mathbf{L}\\mathbf{U}, \\quad L_{ii} = 1',
+      crout: '\\mathbf{A} = \\mathbf{L}\\mathbf{U}, \\quad U_{ii} = 1',
+      cholesky: '\\mathbf{A} = \\mathbf{L}\\mathbf{L}^T, \\quad l_{ii} = \\sqrt{a_{ii} - \\sum_{k=1}^{i-1} l_{ik}^2}',
+      jacobi: 'x_i^{(k+1)} = \\frac{1}{a_{ii}}\\left(b_i - \\sum_{j \\neq i} a_{ij} x_j^{(k)}\\right)',
+      seidel: 'x_i^{(k+1)} = \\frac{1}{a_{ii}}\\left(b_i - \\sum_{j < i} a_{ij} x_j^{(k+1)} - \\sum_{j > i} a_{ij} x_j^{(k)}\\right)',
+      power: '\\mathbf{v}^{(k+1)} = \\frac{\\mathbf{A}\\mathbf{v}^{(k)}}{\\|\\mathbf{A}\\mathbf{v}^{(k)}\\|_\\infty}, \\quad \\lambda^{(k+1)} = \\max(\\mathbf{A}\\mathbf{v}^{(k)})',
+      inverse_power: '(\\mathbf{A} - \\mu \\mathbf{I})\\mathbf{w}^{(k+1)} = \\mathbf{v}^{(k)}, \\quad \\mathbf{v}^{(k+1)} = \\frac{\\mathbf{w}^{(k+1)}}{\\|\\mathbf{w}^{(k+1)}\\|}',
+      qr_eigen: '\\mathbf{A}_{k} = \\mathbf{Q}_k \\mathbf{R}_k \\implies \\mathbf{A}_{k+1} = \\mathbf{R}_k \\mathbf{Q}_k'
+    };
+
+    // Representación matricial LaTeX
+    const aLatex = `\\begin{pmatrix} ${matrixA.map((row) => row.map((v) => formatNum(v, 4)).join(' & ')).join(' \\\\ ')} \\end{pmatrix}`;
+    const bLatex = !isEigen && vectorB ? `\\begin{pmatrix} ${vectorB.map((v) => formatNum(v, 4)).join(' \\\\ ')} \\end{pmatrix}` : '';
+
+    const mathFormulation = isEigen
+      ? `\\mathbf{A}\\mathbf{v} = \\lambda \\mathbf{v}, \\quad \\mathbf{A} = ${aLatex}`
+      : `\\mathbf{A}\\mathbf{x} = \\mathbf{b}, \\quad \\mathbf{A} = ${aLatex}, \\quad \\mathbf{b} = ${bLatex}`;
+
+    let mainResultValue = '';
+    let mainResultLabel = 'Solución';
+    if (result.solution) {
+      mainResultLabel = 'Vector Solución (x)';
+      mainResultValue = `[${result.solution.map((v) => formatNum(v, precision)).join(', ')}]`;
+    } else if (result.eigenvalue !== undefined) {
+      mainResultLabel = 'Autovalor λ';
+      mainResultValue = `λ ≈ ${formatNum(result.eigenvalue, precision)}`;
+    } else if (result.eigenvalues) {
+      mainResultLabel = 'Autovalores (Espectro QR)';
+      mainResultValue = result.eigenvalues
+        .map((ev, i) => `λ_${i + 1} = ${ev.text || formatNum(ev.real, precision)}`)
+        .join(', ');
+    }
+
+    // Columnas y filas para la tabla
+    let tableCols = [];
+    let tableRows = [];
+    if (result.iterations && Array.isArray(result.iterations) && result.iterations.length > 0) {
+      if (method === 'jacobi' || method === 'seidel') {
+        tableCols = [
+          { key: 'k', label: 'k (Iter)' },
+          ...Array.from({ length: n }, (_, i) => ({
+            key: `x_${i + 1}`,
+            label: `x_${i + 1}`
+          })),
+          { key: 'ea', label: '||Δx||_∞' }
+        ];
+        tableRows = result.iterations.map((it) => ({
+          k: it.k,
+          ...it.x.reduce((acc, val, i) => ({ ...acc, [`x_${i + 1}`]: formatNum(val, precision) }), {}),
+          ea: it.error !== undefined ? formatNum(it.error, precision) : '—'
+        }));
+      } else if (method === 'power' || method === 'inverse_power') {
+        tableCols = [
+          { key: 'k', label: 'Iteración (k)' },
+          { key: 'lambda', label: 'λ Aprox.' },
+          { key: 'ea', label: 'Error |Δλ|' }
+        ];
+        tableRows = result.iterations.map((it) => ({
+          k: it.k,
+          lambda: formatNum(it.lambda, precision),
+          ea: it.error !== undefined ? formatNum(it.error, precision) : '—'
+        }));
+      }
+    } else if (result.solution) {
+      tableCols = [
+        { key: 'variable', label: 'Variable' },
+        { key: 'value', label: 'Valor Calculado' }
+      ];
+      tableRows = result.solution.map((v, i) => ({
+        variable: `x_${i + 1}`,
+        value: formatNum(v, precision)
+      }));
+    }
+
+    const markers = [];
+    if (result.iterations && Array.isArray(result.iterations)) {
+      result.iterations.forEach((it) => {
+        const errVal = it.error ?? it.ea;
+        if (errVal !== undefined && Number.isFinite(errVal)) {
+          markers.push({ x: it.k, y: errVal });
+        }
+      });
+    }
+
+    return {
+      moduleId: 'linear',
+      moduleTitle: 'Sistemas de Ecuaciones Lineales & Autovalores',
+      category,
+      methodId: method,
+      methodName: methodNames[method] || method,
+      problemStatement: isEigen
+        ? `Cálculo de autovalores y autovectores asociados de la matriz cuadrada A de orden ${n}×${n}.`
+        : `Solución del sistema algebraico lineal simultáneo Ax = b de orden ${n}×${n}.`,
+      mathFormulationLatex: mathFormulation,
+      methodFormulaLatex: methodFormulas[method] || '',
+      parameters: [
+        { label: 'Dimensión de Matriz', value: `${n}×${n}` },
+        { label: 'Método Numérico', value: methodNames[method] || method },
+        ...(isIterative
+          ? [
+              { label: 'Tolerancia', value: tolerance },
+              { label: 'Máx. Iteraciones', value: maxIter }
+            ]
+          : []),
+        ...(method === 'inverse_power' ? [{ label: 'Spectral Shift (μ)', value: shift }] : []),
+        { label: 'Precisión Decimal', value: `${precision} decimales` }
+      ],
+      rawInputs: {
+        matrixA,
+        vectorB,
+        vectorX0,
+        tolerance: parseFloat(tolerance) || 1e-4,
+        maxIter: parseInt(maxIter, 10) || 100,
+        shift: parseFloat(shift) || 0
+      },
+      resultSummary: {
+        converged: result.converged ?? true,
+        mainResultLabel,
+        mainResultValue,
+        iterationsCount: result.iterations
+          ? Array.isArray(result.iterations)
+            ? result.iterations.length
+            : result.iterations
+          : 1,
+        finalError: result.residualNorm !== undefined ? formatNum(result.residualNorm, 4) : '---',
+        message: result.message || 'Cálculo completado exitosamente.'
+      },
+      tableColumns: tableCols,
+      tableData: tableRows,
+      plotPoints: {
+        curve: markers,
+        markers,
+        xLabel: 'Iteración (k)',
+        yLabel: 'Norma Error'
+      }
+    };
+  }, [
+    result,
+    category,
+    method,
+    matrixA,
+    vectorB,
+    vectorX0,
+    tolerance,
+    maxIter,
+    shift,
+    n,
+    precision,
+    isEigen,
+    isIterative
+  ]);
+
   return (
     <div className="space-y-6">
       {/* Selector de Categoría Principal */}
