@@ -632,6 +632,9 @@ export default function LinearModule({ precision = 6 }) {
       {/* Resultados */}
       {result && (
         <div className="space-y-6">
+          {/* Barra de Exportación y Utilidad Académica */}
+          <ExportToolbar exportData={exportData} />
+
           {/* Badge de Rendimiento del Web Worker */}
           {result.executionTimeMs !== undefined && (
             <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900/70 border border-teal-800/50 rounded-xl text-xs">

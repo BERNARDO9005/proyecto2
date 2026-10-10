@@ -14,6 +14,7 @@ import LatexRenderer from '../components/LatexRenderer';
 import InteractivePlot from '../components/InteractivePlot';
 import IterationTable from '../components/IterationTable';
 import AlertBanner from '../components/AlertBanner';
+import ExportToolbar from '../components/ExportToolbar';
 
 export default function CalculusModule({ precision = 6 }) {
   const [activeTab, setActiveTab] = useState('integration'); // 'integration' | 'differentiation'
@@ -298,12 +299,153 @@ export default function CalculusModule({ precision = 6 }) {
     }
   }, [diffResult, diffExpr, precision]);
 
-  // Columnas para tabla de nodos de integración
-  const intTableColumns = [
-    { key: 'i', label: 'i (Nodo)' },
-    { key: 'x', label: 'x_i' },
-    { key: 'fx', label: 'f(x_i)' }
-  ];
+  // Datos unificados para Exportación Académica (PDF/LaTeX) y Generador de Código
+  const exportData = useMemo(() => {
+    if (activeTab === 'integration' && intResult) {
+      const methodNames = {
+        trapezoidSimple: 'Regla del Trapecio Simple',
+        trapezoidComp: 'Regla del Trapecio Compuesta',
+        simpson13: 'Regla de Simpson 1/3 Compuesta',
+        simpson38: 'Regla de Simpson 3/8 Compuesta',
+        gaussLegendre: 'Cuadratura de Gauss-Legendre',
+        romberg: 'Integración de Romberg'
+      };
+
+      const methodFormulas = {
+        trapezoidSimple: 'I \\approx \\frac{b - a}{2} [f(a) + f(b)]',
+        trapezoidComp: 'I \\approx \\frac{h}{2} \\left[ f(x_0) + 2\\sum_{i=1}^{n-1} f(x_i) + f(x_n) \\right]',
+        simpson13: 'I \\approx \\frac{h}{3} \\left[ f(x_0) + 4\\sum_{\\text{impar}} f(x_i) + 2\\sum_{\\text{par}} f(x_i) + f(x_n) \\right]',
+        simpson38: 'I \\approx \\frac{3h}{8} \\left[ f(x_0) + 3\\sum_{i \\nmid 3} f(x_i) + 2\\sum_{i \\mid 3} f(x_i) + f(x_n) \\right]',
+        gaussLegendre: 'I \\approx \\frac{b - a}{2} \\sum_{i=1}^n w_i f\\left(\\frac{b - a}{2}t_i + \\frac{a + b}{2}\\right)',
+        romberg: 'R(j, k) = \\frac{4^k R(j, k-1) - R(j-1, k-1)}{4^k - 1}'
+      };
+
+      const curve = [];
+      if (intResult.points && intResult.points.length > 0) {
+        intResult.points.forEach((p) => curve.push({ x: p.x, y: p.fx }));
+      }
+
+      return {
+        moduleId: 'calculus',
+        moduleTitle: 'Cálculo Numérico - Integración Definida',
+        activeTab: 'integration',
+        methodId: intMethod,
+        methodName: intResult.method || methodNames[intMethod] || intMethod,
+        problemStatement: `Aproximación numérica de la integral definida en el intervalo [${paramA}, ${paramB}].`,
+        mathFormulationLatex: `I = \\int_{${paramA}}^{${paramB}} \\left(${currentLatexPreview.replace('f(x) = ', '')}\\right)\\,dx`,
+        methodFormulaLatex: methodFormulas[intMethod] || '',
+        parameters: [
+          { label: 'Integrando f(x)', value: intExpr },
+          { label: 'Límite Inferior a', value: paramA },
+          { label: 'Límite Superior b', value: paramB },
+          ...(intMethod === 'gaussLegendre'
+            ? [{ label: 'Puntos de Gauss', value: gaussPoints }]
+            : intMethod === 'romberg'
+            ? [{ label: 'Tolerancia Romberg', value: rombergTol }]
+            : [{ label: 'Subintervalos (n)', value: paramN }]),
+          { label: 'Precisión Decimal', value: `${precision} decimales` }
+        ],
+        rawInputs: {
+          expression: intExpr,
+          a: parseFloat(paramA),
+          b: parseFloat(paramB),
+          n: parseInt(paramN, 10) || 4,
+          gaussPoints: parseInt(gaussPoints, 10) || 3
+        },
+        resultSummary: {
+          converged: true,
+          mainResultLabel: 'Valor de la Integral I',
+          mainResultValue: `I ≈ ${formatNum(intResult.result, precision)}`,
+          iterationsCount: intResult.n || intResult.levels || 1,
+          finalError: intResult.estimatedError !== undefined ? formatNum(intResult.estimatedError, precision) : '---',
+          message: `Cálculo finalizado exitosamente mediante ${intResult.method}.`
+        },
+        tableColumns: intTableColumns,
+        tableData: intResult.points || [],
+        plotPoints: {
+          curve,
+          markers: curve,
+          xLabel: 'x',
+          yLabel: 'f(x)'
+        }
+      };
+    } else if (activeTab === 'differentiation' && diffResult) {
+      const best = diffResult.firstDerivative.central4;
+      const tableData = [
+        { scheme: 'Centrada O(h⁴)', order: 'O(h⁴)', formula: best.formula, value: best.value },
+        { scheme: 'Centrada O(h²)', order: 'O(h²)', formula: diffResult.firstDerivative.central1.formula, value: diffResult.firstDerivative.central1.value },
+        { scheme: 'Adelante O(h²)', order: 'O(h²)', formula: diffResult.firstDerivative.forward2.formula, value: diffResult.firstDerivative.forward2.value },
+        { scheme: 'Atrás O(h²)', order: 'O(h²)', formula: diffResult.firstDerivative.backward2.formula, value: diffResult.firstDerivative.backward2.value },
+        { scheme: 'Adelante O(h)', order: 'O(h)', formula: diffResult.firstDerivative.forward1.formula, value: diffResult.firstDerivative.forward1.value },
+        { scheme: 'Atrás O(h)', order: 'O(h)', formula: diffResult.firstDerivative.backward1.formula, value: diffResult.firstDerivative.backward1.value },
+        { scheme: 'Segunda Derivada Centrada', order: 'O(h²)', formula: diffResult.secondDerivative.central2.formula, value: diffResult.secondDerivative.central2.value }
+      ];
+
+      return {
+        moduleId: 'calculus',
+        moduleTitle: 'Cálculo Numérico - Diferenciación Numérica',
+        activeTab: 'differentiation',
+        methodId: 'differentiation',
+        methodName: 'Diferenciación Numérica (Diferencias Finitas)',
+        problemStatement: `Aproximación de derivadas de primer y segundo orden en el punto x₀ = ${diffX0} con tamaño de paso h = ${diffH}.`,
+        mathFormulationLatex: `f'(x_0) \\quad \\text{en } x_0 = ${diffX0}, \\quad h = ${diffH}`,
+        methodFormulaLatex: 'f\'(x_0) = \\frac{-f(x_0+2h) + 8f(x_0+h) - 8f(x_0-h) + f(x_0-2h)}{12h} + O(h^4)',
+        parameters: [
+          { label: 'Función f(x)', value: diffExpr },
+          { label: 'Punto de Evaluación x0', value: diffX0 },
+          { label: 'Tamaño de Paso h', value: diffH },
+          { label: 'Precisión Decimal', value: `${precision} decimales` }
+        ],
+        rawInputs: {
+          expression: diffExpr,
+          x0: parseFloat(diffX0),
+          h: parseFloat(diffH)
+        },
+        resultSummary: {
+          converged: true,
+          mainResultLabel: "f'(x₀) [Centrada O(h⁴)]",
+          mainResultValue: formatNum(best.value, precision),
+          iterationsCount: 1,
+          finalError: `Paso h = ${diffH}`,
+          message: 'Diferenciación numérica calculada con 6 esquemas analíticos.'
+        },
+        tableColumns: [
+          { key: 'scheme', label: 'Esquema de Diferencias' },
+          { key: 'order', label: 'Orden de Truncamiento' },
+          { key: 'value', label: 'Valor Aproximado' }
+        ],
+        tableData: tableData.map((d) => ({ ...d, value: formatNum(d.value, precision) })),
+        plotPoints: {
+          curve: diffPlotData && diffPlotData[0] && diffPlotData[0].x
+            ? diffPlotData[0].x.map((x, i) => ({ x, y: diffPlotData[0].y[i] })).filter((p) => p.y !== null)
+            : [],
+          markers: diffResult.evaluations ? diffResult.evaluations.map((e) => ({ x: e.x, y: e.fx })) : [],
+          root: { x: parseFloat(diffX0), y: diffResult.fx0, label: 'x0' },
+          xLabel: 'x',
+          yLabel: 'f(x)'
+        }
+      };
+    }
+    return null;
+  }, [
+    activeTab,
+    intResult,
+    diffResult,
+    intMethod,
+    intExpr,
+    paramA,
+    paramB,
+    paramN,
+    gaussPoints,
+    rombergTol,
+    diffExpr,
+    diffX0,
+    diffH,
+    precision,
+    currentLatexPreview,
+    intTableColumns,
+    diffPlotData
+  ]);
 
   return (
     <div className="space-y-6">
