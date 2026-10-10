@@ -299,6 +299,13 @@ export default function CalculusModule({ precision = 6 }) {
     }
   }, [diffResult, diffExpr, precision]);
 
+  // Columnas para tabla de nodos de integración
+  const intTableColumns = [
+    { key: 'i', label: 'i (Nodo)' },
+    { key: 'x', label: 'x_i' },
+    { key: 'fx', label: 'f(x_i)' }
+  ];
+
   // Datos unificados para Exportación Académica (PDF/LaTeX) y Generador de Código
   const exportData = useMemo(() => {
     if (activeTab === 'integration' && intResult) {
@@ -701,6 +708,9 @@ export default function CalculusModule({ precision = 6 }) {
 
           {intResult && (
             <div className="space-y-6">
+              {/* Barra de Exportación y Utilidad Académica */}
+              <ExportToolbar exportData={exportData} />
+
               {/* Tarjeta de Resultado Principal */}
               <div className="p-5 rounded-2xl border bg-emerald-950/25 border-emerald-600/50 shadow-xl backdrop-blur-sm">
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -955,6 +965,9 @@ export default function CalculusModule({ precision = 6 }) {
 
           {diffResult && (
             <div className="space-y-6">
+              {/* Barra de Exportación y Utilidad Académica */}
+              <ExportToolbar exportData={exportData} />
+
               {/* Panel de Primera Derivada f'(x0) */}
               <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/70 shadow-lg space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">

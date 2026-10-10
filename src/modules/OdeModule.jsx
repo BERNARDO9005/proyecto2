@@ -23,6 +23,7 @@ import LatexRenderer from '../components/LatexRenderer';
 import InteractivePlot from '../components/InteractivePlot';
 import IterationTable from '../components/IterationTable';
 import AlertBanner from '../components/AlertBanner';
+import ExportToolbar from '../components/ExportToolbar';
 
 export default function OdeModule({ precision = 6 }) {
   // Tipo de problema: 'single' (1er orden) | 'system' (sistema acoplado) | 'secondOrder' (2do orden)
