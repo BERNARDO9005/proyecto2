@@ -275,6 +275,13 @@ export default function App() {
                   Polinomios de Lagrange (bases $L_i(x)$ y forma canónica expandida), Diferencias Divididas de Newton (tabla piramidal y esquema de Horner), y Splines Cúbicos Naturales con resolución tridiagonal de Thomas para segundas derivadas continuas $C^2$ y $S''(x_0) = S''(x_n) = 0$.
                 </p>
               </div>
+
+              <div>
+                <h5 className="font-bold text-teal-300">6. Exportación Formal y Utilidad Académica</h5>
+                <p>
+                  Generación de <strong>Informes Formales en PDF y LaTeX</strong> (.tex compilable con preámbulo, tablas <code>booktabs</code> y gráficos vectoriales PGFPlots/TikZ o SVG para impresión), y <strong>Generador de Código en Python (SciPy/NumPy), MATLAB y C++17</strong> con scripts 100% ejecutables que reproducen exactamente el cálculo configurado.
+                </p>
+              </div>
             </div>
 
             <div className="pt-3 border-t border-slate-800 flex justify-end">
