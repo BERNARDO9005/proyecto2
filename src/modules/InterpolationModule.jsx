@@ -360,6 +360,8 @@ export default function InterpolationModule({ precision = 6 }) {
     }
 
     return traces;
+  }, [result, points, evaluatedValue, evalX, precision, category]);
+
   // Datos unificados para Exportación Académica (PDF/LaTeX) y Generador de Código
   const exportData = useMemo(() => {
     if (!result) return null;
@@ -859,6 +861,9 @@ export default function InterpolationModule({ precision = 6 }) {
       {/* Resultados */}
       {result && (
         <div className="space-y-6">
+          {/* Barra de Exportación y Utilidad Académica */}
+          <ExportToolbar exportData={exportData} />
+
           {/* RESULTADOS DE REGRESIÓN */}
           {category === 'regression' ? (
             <div className="space-y-6">
