@@ -234,7 +234,108 @@ export default function NonlinearModule({ precision = 6 }) {
         }
       ];
     }
-  }, [method]);
+  // Datos unificados para Exportación Académica (PDF/LaTeX) y Generación de Código
+  const exportData = useMemo(() => {
+    if (!result) return null;
+
+    const methodNames = {
+      bisection: 'Método de Bisección',
+      regulaFalsi: 'Método de Regula Falsi (Falsa Posición)',
+      newton: 'Método de Newton-Raphson',
+      secant: 'Método de la Secante'
+    };
+
+    const methodFormulas = {
+      bisection: 'x_m = \\frac{a + b}{2}',
+      regulaFalsi: 'x_r = b - \\frac{f(b)(b - a)}{f(b) - f(a)}',
+      newton: 'x_{k+1} = x_k - \\frac{f(x_k)}{f\'(x_k)}',
+      secant: 'x_{k+1} = x_k - \\frac{f(x_k)(x_k - x_{k-1})}{f(x_k) - f(x_{k-1})}'
+    };
+
+    const curve = [];
+    if (plotData && plotData[0] && plotData[0].x) {
+      for (let i = 0; i < plotData[0].x.length; i += 2) {
+        if (plotData[0].y[i] !== null) {
+          curve.push({ x: plotData[0].x[i], y: plotData[0].y[i] });
+        }
+      }
+    }
+
+    const markers = result.iterations.map((it) => ({
+      x: it.xi ?? it.next_xi ?? 0,
+      y: it.f_xi ?? 0
+    }));
+
+    return {
+      moduleId: 'nonlinear',
+      moduleTitle: 'Ecuaciones No Lineales - Búsqueda de Raíces',
+      methodId: method,
+      methodName: methodNames[method] || method,
+      problemStatement: `Búsqueda de raíz real de la ecuación f(x) = 0 mediante aproximación numérica recursiva.`,
+      mathFormulationLatex: `f(x) = ${latexPreview.replace('f(x) = ', '')} = 0`,
+      methodFormulaLatex: methodFormulas[method] || '',
+      parameters: [
+        { label: 'Ecuación f(x)', value: expression },
+        ...(method === 'bisection' || method === 'regulaFalsi'
+          ? [
+              { label: 'Límite inferior a', value: paramA },
+              { label: 'Límite superior b', value: paramB }
+            ]
+          : method === 'newton'
+          ? [{ label: 'Punto inicial x0', value: paramX0 }]
+          : [
+              { label: 'Punto inicial x0', value: paramX0 },
+              { label: 'Punto inicial x1', value: paramX1 }
+            ]),
+        { label: 'Tolerancia (|εa|)', value: tolerance },
+        { label: 'Máx. Iteraciones', value: maxIter },
+        { label: 'Precisión Decimal', value: `${precision} decimales` }
+      ],
+      rawInputs: {
+        expression,
+        paramA,
+        paramB,
+        paramX0,
+        paramX1,
+        tolerance: parseFloat(tolerance) || 1e-4,
+        maxIter: parseInt(maxIter, 10) || 100
+      },
+      resultSummary: {
+        converged: result.converged,
+        mainResultLabel: 'Raíz Aproximada (x*)',
+        mainResultValue: `x ≈ ${formatNum(result.root, precision)}`,
+        iterationsCount: result.iterations.length,
+        finalError:
+          result.iterations[result.iterations.length - 1]?.ea !== null
+            ? formatNum(result.iterations[result.iterations.length - 1]?.ea, precision)
+            : '---',
+        message: result.message
+      },
+      tableColumns,
+      tableData: result.iterations,
+      plotPoints: {
+        curve,
+        markers,
+        root: { x: result.root, y: 0, label: 'Raíz x*' },
+        xLabel: 'x',
+        yLabel: 'f(x)'
+      }
+    };
+  }, [
+    result,
+    method,
+    expression,
+    paramA,
+    paramB,
+    paramX0,
+    paramX1,
+    tolerance,
+    maxIter,
+    precision,
+    latexPreview,
+    plotData,
+    tableColumns
+  ]);
 
   return (
     <div className="space-y-6">
