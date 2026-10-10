@@ -6,6 +6,7 @@ import LatexRenderer from '../components/LatexRenderer';
 import InteractivePlot from '../components/InteractivePlot';
 import IterationTable from '../components/IterationTable';
 import AlertBanner from '../components/AlertBanner';
+import ExportToolbar from '../components/ExportToolbar';
 
 export default function NonlinearModule({ precision = 6 }) {
   const [method, setMethod] = useState('bisection');
