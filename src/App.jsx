@@ -223,6 +223,7 @@ export default function App() {
 
         {/* Área de Trabajo / Módulo Activo */}
         <main className="flex-1 min-w-0">
+          {activeModule === 'scientific' && <ScientificCalculatorModule precision={precision} />}
           {activeModule === 'nonlinear' && <NonlinearModule precision={precision} />}
           {activeModule === 'linear' && <LinearModule precision={precision} />}
           {activeModule === 'calculus' && <CalculusModule precision={precision} />}
@@ -238,7 +239,7 @@ export default function App() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2 text-teal-400 font-bold text-lg">
                 <BookOpen className="w-5 h-5" />
-                <span>Manual de Métodos Numéricos y Casos Límite</span>
+                <span>Manual de Métodos Numéricos y Calculadora Científica</span>
               </div>
               <button
                 onClick={() => setShowDocsModal(false)}
@@ -249,6 +250,12 @@ export default function App() {
             </div>
 
             <div className="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <div>
+                <h5 className="font-bold text-emerald-300">0. Calculadora Científica Multifunción</h5>
+                <p>
+                  Calculadora científica con pantalla <strong>Natural Display</strong> y visualización KaTeX. Incorpora modos angulares (<strong>DEG</strong>, <strong>RAD</strong>, <strong>GRAD</strong>), funciones trigonométricas directas e inversas, funciones hiperbólicas (<code>hyp</code>), logaritmos naturales y en base 10/2, potencias y raíces n-ésimas, combinatoria (<code>n!</code>, <code>nCr</code>, <code>nPr</code>), registros de memoria (<code>MC</code>, <code>MR</code>, <code>M+</code>, <code>M-</code>, <code>MS</code>), catálogo de <strong>constantes físicas universales</strong> y conversión instantánea a fracciones irreducibles y notaciones científica/ingeniería.
+                </p>
+              </div>
               <div>
                 <h5 className="font-bold text-teal-300">1. Ecuaciones No Lineales</h5>
                 <p>
