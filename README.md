@@ -8,6 +8,17 @@ Desarrollada con **React 18**, **Vite**, **Tailwind CSS (Dark Mode #0f172a)**, c
 
 ## 🚀 Características Principales
 
+### 0. Módulo Científico: Calculadora Científica Multifunción
+- **Pantalla Natural Display**: Visualización dual con renderizado de fórmulas LaTeX en tiempo real vía **KaTeX**, edición de expresiones con soporte completo para teclado físico y ratón.
+- **Modos Angulares Universales**: Selector instantáneo entre **DEG** (grados sexagesimales), **RAD** (radianes) y **GRAD** (gradianes centesimales), con control exacto de asíntotas en $\tan(90^\circ)$, $\cot$, $\sec$ y $\csc$.
+- **Trigonometría e Hiperbólicas**: Funciones directas ($\sin, \cos, \tan$), inversas ($\arcsin, \arccos, \arctan$) y funciones hiperbólicas ($\sinh, \cosh, \tanh, \operatorname{asinh}, \operatorname{acosh}, \operatorname{atanh}$) accesibles mediante conmutadores `2nd` y `hyp`.
+- **Logaritmos y Potencias**: Logaritmo natural ($\ln x$), base 10 ($\log_{10} x$), base 2 ($\log_2 x$), potencias arbitrarias ($x^y$), raíces cuadradas, cúbicas y n-ésimas ($\sqrt[n]{x}$).
+- **Combinatoria y Probabilidad**: Factoriales ($n!$), combinaciones ($n\text{C}r$) y permutaciones ($n\text{P}r$).
+- **Sistema de Memoria Científica**: 5 funciones de memoria estándar: `MC` (Clear), `MR` (Recall), `M+` (Add), `M-` (Subtract) y `MS` (Store) con indicador dinámico en pantalla.
+- **Formatos de Visualización Dinámicos**: Conmutación entre notación Decimal estándar, Notación Científica ($a \times 10^b$), Notación de Ingeniería ($a \times 10^{3k}$) y conversión exacta a **fracciones irreducibles** ($p/q$).
+- **Catálogo de Constantes Físicas**: Modal con 15 constantes fundamentales preconfiguradas ($c, h, \hbar, G, k_B, e^-, m_e, m_p, N_A, R, g, \varepsilon_0, \mu_0, \sigma, \phi$) con inserción directa con 1 clic.
+- **Historial de Sesión con Exportación**: Registro cronológico de operaciones pasadas con opción de reutilización inmediata de expresiones, inserción de resultados previos (`Ans`), y exportación a **CSV**.
+
 ### 1. Módulo 1: Solución de Ecuaciones No Lineales (Búsqueda de Raíces)
 - **Métodos**: Bisección, Regula Falsi, Newton-Raphson y Secante.
 - **Entradas**: Expresión $f(x)$ estándar, intervalo $[a, b]$ o puntos iniciales $x_0$ ($x_1$), tolerancia $|\varepsilon_a|$ y límite de iteraciones (hasta 100).
