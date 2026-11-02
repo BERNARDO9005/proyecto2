@@ -18,14 +18,22 @@ import LinearModule from './modules/LinearModule';
 import CalculusModule from './modules/CalculusModule';
 import OdeModule from './modules/OdeModule';
 import InterpolationModule from './modules/InterpolationModule';
+import ScientificCalculatorModule from './modules/ScientificCalculatorModule';
 
 export default function App() {
-  const [activeModule, setActiveModule] = useState('nonlinear');
+  const [activeModule, setActiveModule] = useState('scientific');
   const [precision, setPrecision] = useState(6);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
 
   const modules = [
+    {
+      id: 'scientific',
+      title: 'Calculadora Científica',
+      subtitle: 'Funciones, Memoria & Constantes',
+      icon: <Calculator className="w-5 h-5 text-emerald-400" />,
+      badge: 'Científica'
+    },
     {
       id: 'nonlinear',
       title: 'Ecuaciones No Lineales',
